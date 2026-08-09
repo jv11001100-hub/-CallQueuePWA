@@ -9,7 +9,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>連續撥號</title>
-<!-- Clean Start v1.2: row-based company/name OCR; phone core unchanged -->
+<!-- Clean Start v1.3: whole-image company/name OCR; phone core unchanged -->
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <style>
 :root{--bg:#f4f4f6;--card:#fff;--text:#111;--muted:#7a7a80;--line:#e3e3e8;--ok:#07834d;--bad:#c5221f}
@@ -262,6 +262,63 @@ async function locatePhoneRowsWithBBox(source){
   return out;
 }
 
+
+function parseWholeImageMetadata(text='', expected=0){
+  const lines=String(text).split(/\n+/).map(cleanRowText).filter(Boolean);
+  const rows=[];
+
+  // 先抓含電話的 OCR 行；同一行通常包含該列公司/姓名資訊。
+  for(let i=0;i<lines.length;i++){
+    const line=lines[i];
+    const ph=extractPhones(line);
+    if(!ph.length) continue;
+
+    const neighborhood=[
+      lines[i-1]||'',
+      line,
+      lines[i+1]||''
+    ];
+
+    let company='', name='';
+
+    // 優先從電話同一行抓
+    name=extractNameFromRow(line);
+    company=extractCompanyFromRow(line);
+
+    // 再從相鄰行補資料（OCR 有時會把一列拆成兩行）
+    if(!name){
+      for(const s of neighborhood){
+        const n=extractNameFromRow(s);
+        if(n){name=n;break;}
+      }
+    }
+    if(!company){
+      for(const s of neighborhood){
+        const c=extractCompanyFromRow(s);
+        if(c){company=c;break;}
+      }
+    }
+
+    rows.push({name,company,phone:ph[0]});
+  }
+
+  // 若含電話行沒有公司/姓名，再掃所有文字行，依出現順序建立公司/姓名候選。
+  const companies=[];
+  const names=[];
+  for(const line of lines){
+    const c=extractCompanyFromRow(line);
+    if(c && !companies.includes(c)) companies.push(c);
+    const n=extractNameFromRow(line);
+    if(n) names.push(n);
+  }
+
+  for(let i=0;i<Math.min(expected,rows.length);i++){
+    if(!rows[i].company && companies[i]) rows[i].company=companies[i];
+    if(!rows[i].name && names[i]) rows[i].name=names[i];
+  }
+  return rows;
+}
+
 async function runOCR(){
   const expected=parseInt(document.getElementById('expectedRows').value,10);
   const file=(cameraInput.files&&cameraInput.files[0])|| (imageInput.files&&imageInput.files[0]);
@@ -280,23 +337,35 @@ async function runOCR(){
     // 簡化策略：依出現順序取前 expected 筆；若不足，空列保留。
     ocrDraft=buildRowsFromPhoneSequence(phones, expected);
 
-    // v1.2：電話先完成，再用電話列位置逐列辨識公司/姓名。
-    // 這段絕不改動電話筆數、順序或內容。
-    st.textContent='電話已完成，正在逐列辨識公司 / 姓名…';
+    // v1.3：電話核心完成後，另外整張跑繁中 OCR。
+    // 只把公司 / 姓名按列序填回去，絕不改電話筆數、順序、內容。
+    st.textContent='電話已完成，正在辨識整張名單的公司 / 姓名…';
     try{
-      const phoneRows=await locatePhoneRowsWithBBox(c);
-      const meta=await rowMetadataOCR(c, expected, phoneRows);
+      const metaText=await ocrOne(c,'chi_tra+eng','6');
+      const metaRows=parseWholeImageMetadata(metaText,expected);
+
+      // 第一優先：按列順序填回
       for(let i=0;i<ocrDraft.length;i++){
-        if(meta[i]){
-          if(meta[i].name) ocrDraft[i].name=meta[i].name;
-          if(meta[i].company) ocrDraft[i].company=meta[i].company;
-        }
+        const mr=metaRows[i];
+        if(!mr) continue;
+        if(mr.company) ocrDraft[i].company=mr.company;
+        if(mr.name) ocrDraft[i].name=mr.name;
+      }
+
+      // 第二安全網：若 OCR 的電話順序有偏差，用電話值尋找對應 metadata。
+      for(let i=0;i<ocrDraft.length;i++){
+        if(ocrDraft[i].company && ocrDraft[i].name!=='未命名') continue;
+        const p=normalizePhone(ocrDraft[i].phone);
+        const mr=metaRows.find(x=>normalizePhone(x.phone)===p);
+        if(!mr) continue;
+        if(!ocrDraft[i].company && mr.company) ocrDraft[i].company=mr.company;
+        if((!ocrDraft[i].name || ocrDraft[i].name==='未命名') && mr.name) ocrDraft[i].name=mr.name;
       }
     }catch(metaErr){
-      console.warn('row metadata OCR skipped',metaErr);
+      console.warn('whole-image metadata OCR skipped',metaErr);
     }
 
-    st.textContent=`完成：固定建立 ${expected} 筆。已辨識到 ${ocrDraft.filter(x=>x.phone).length} 筆電話。公司 / 姓名採同列辨識，可直接手動修改。`;
+    st.textContent=`完成：固定建立 ${expected} 筆。已辨識到 ${ocrDraft.filter(x=>x.phone).length} 筆電話。公司 / 姓名採整張中文辨識，不影響電話資料。`;
     renderOCR();
   }catch(e){
     console.error(e);
