@@ -10,7 +10,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
   <title>連續撥號</title>
-  <!-- OCR accuracy version: 5 file/photo picker + stronger row parsing -->
+  <!-- OCR accuracy version: 6 phone-first safety-net OCR -->
 
   <style>
     :root {
@@ -165,7 +165,7 @@
       </div>
       <div id="selectedFileName" class="notice">尚未選擇圖片</div>
       <div class="notice">
-        可直接拍照，也可從「照片」或「檔案」App 選擇 JPG、PNG、HEIC 等圖片。辨識後會先顯示結果，再加入待撥名單。
+        可直接拍照，也可從「照片」或「檔案」App 選擇圖片。此版本採「電話優先」：只要辨識到合法電話，就會至少建立一筆；姓名、公司抓不到時可先留空／未命名。
       </div>
       <button class="primary" style="margin-top:12px" onclick="runOCR()">開始辨識</button>
       <div id="ocrStatus" class="notice"></div>
@@ -731,6 +731,110 @@ function parseTableRowText(rowText, phone){
   return {name,company,region};
 }
 
+
+function extractAllLoosePhonesFromText(text=''){
+  const found=[];
+  const seen=new Set();
+
+  // 逐行處理，避免把上下兩筆電話黏在一起。
+  const lines=String(text).split(/\n+/);
+  for(const line0 of lines){
+    const line=String(line0);
+    // 先找「看起來像電話」的片段，容許 OCR 把 0/1 看成 O/I/l/|
+    const chunks=line.match(/[0-9OIl|\s\-－—()（）]{8,24}/g)||[];
+    for(const raw of chunks){
+      let d=raw
+        .replace(/[O]/g,'0')
+        .replace(/[Il|]/g,'1')
+        .replace(/\D/g,'');
+
+      // +886 / 886 轉回台灣 0 開頭
+      if(d.startsWith('886')) d='0'+d.slice(3);
+
+      // 一個 chunk 偶爾會包含前後雜碼，滑動找合法 9/10 碼電話。
+      const candidates=[];
+      if(/^09\d{8}$/.test(d)) candidates.push(d);
+      if(/^0[2-8]\d{7,8}$/.test(d)) candidates.push(d);
+
+      for(let len of [10,9]){
+        if(d.length>len){
+          for(let i=0;i<=d.length-len;i++){
+            const s=d.slice(i,i+len);
+            if(/^09\d{8}$/.test(s) || /^0[2-8]\d{7,8}$/.test(s)) candidates.push(s);
+          }
+        }
+      }
+
+      for(const p of candidates){
+        if(!seen.has(p)){
+          seen.add(p);
+          found.push(p);
+        }
+      }
+    }
+  }
+  return found;
+}
+
+function mergePhoneSafetyNet(existing, ...texts){
+  const byPhone=new Map();
+
+  for(const c of (existing||[])){
+    const n=normalizePhone(c.phone);
+    if(!n) continue;
+    if(!byPhone.has(n)) byPhone.set(n,c);
+  }
+
+  // 任何合法電話，只要 OCR 有抓到，就至少建立一筆。
+  for(const txt of texts){
+    for(const phone of extractAllLoosePhonesFromText(txt||'')){
+      const n=normalizePhone(phone);
+      if(!n || byPhone.has(n)) continue;
+      byPhone.set(n,{
+        id:uid(),
+        name:'未命名',
+        phone,
+        company:'',
+        note:'號碼優先辨識',
+        source:'圖片辨識',
+        status:'pending',
+        callCount:0,
+        createdAt:new Date().toISOString()
+      });
+    }
+  }
+  return [...byPhone.values()];
+}
+
+async function prepareOCRCanvas(file){
+  // 放大 + 灰階 + 提高對比，讓細小電話數字更容易被辨識。
+  try{
+    const bitmap=await createImageBitmap(file);
+    const maxW=2600;
+    const scale=Math.max(1, Math.min(2.5, maxW/bitmap.width));
+    const w=Math.round(bitmap.width*scale);
+    const h=Math.round(bitmap.height*scale);
+    const canvas=document.createElement('canvas');
+    canvas.width=w; canvas.height=h;
+    const ctx=canvas.getContext('2d',{willReadFrequently:true});
+    ctx.drawImage(bitmap,0,0,w,h);
+    const img=ctx.getImageData(0,0,w,h);
+    const d=img.data;
+    for(let i=0;i<d.length;i+=4){
+      const g=Math.round(d[i]*0.299+d[i+1]*0.587+d[i+2]*0.114);
+      // 簡單對比拉高
+      const v=Math.max(0,Math.min(255,Math.round((g-128)*1.35+128)));
+      d[i]=d[i+1]=d[i+2]=v;
+    }
+    ctx.putImageData(img,0,0);
+    try{ bitmap.close(); }catch(_){}
+    return canvas;
+  }catch(e){
+    console.warn('OCR preprocessing fallback',e);
+    return file;
+  }
+}
+
 function parseOCRBlocks(blocks, fallbackText=''){
   const lines=flattenOCRLines(blocks);
   const out=[];
@@ -802,14 +906,30 @@ async function runOCR(){
         else if(m.status) status.textContent='辨識準備中…';
       }
     });
+    const ocrSource=await prepareOCRCanvas(input.files[0]);
+
+    // 第一遍：一般中文/英文 OCR，用來抓公司、姓名與電話。
     await worker.setParameters({
       tessedit_pageseg_mode:'6',
       preserve_interword_spaces:'1',
-      user_defined_dpi:'300'
+      user_defined_dpi:'300',
+      tessedit_char_whitelist:''
     });
-    const ret=await worker.recognize(input.files[0],{}, {text:true,blocks:true});
-    ocrDraft=parseOCRBlocks(ret.data.blocks,ret.data.text||'');
-    status.textContent=`辨識完成，共找到 ${ocrDraft.length} 筆電話資料。請確認後再加入名單。`;
+    const ret=await worker.recognize(ocrSource,{}, {text:true,blocks:true});
+    let base=parseOCRBlocks(ret.data.blocks,ret.data.text||'');
+
+    // 第二遍：專門掃電話。公司/姓名可以錯，但電話盡量不要漏。
+    status.textContent='正在補抓電話號碼…';
+    await worker.setParameters({
+      tessedit_pageseg_mode:'11',
+      preserve_interword_spaces:'1',
+      user_defined_dpi:'300',
+      tessedit_char_whitelist:'0123456789OIl|-－— ()'
+    });
+    const digitsRet=await worker.recognize(ocrSource,{}, {text:true});
+
+    ocrDraft=mergePhoneSafetyNet(base, ret.data.text||'', digitsRet.data.text||'');
+    status.textContent=`辨識完成，共找到 ${ocrDraft.length} 筆電話資料。電話優先：姓名或公司抓不到也會保留號碼。`;
     renderOCRResults();
   }catch(e){
     console.error(e);
