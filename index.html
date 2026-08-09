@@ -10,7 +10,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
   <title>連續撥號</title>
-  <!-- OCR accuracy version: 7 aggressive phone-first multi-pass OCR -->
+  <!-- OCR accuracy version: 8 preserve duplicate rows -->
 
   <style>
     :root {
@@ -165,7 +165,7 @@
       </div>
       <div id="selectedFileName" class="notice">尚未選擇圖片</div>
       <div class="notice">
-        可直接拍照，也可從「照片」或「檔案」App 選擇圖片。此版本採「電話優先＋多輪補抓」：會額外掃描表格電話欄，只要辨識到合法電話就保留；姓名、公司抓錯或抓不到不影響電話建立。
+        可直接拍照，也可從「照片」或「檔案」App 選擇圖片。此版本採「電話優先＋保留重複列」：會額外掃描電話欄；同一電話若在名單出現兩次，也會依兩列分開保留。姓名、公司抓錯或抓不到不影響電話建立。
       </div>
       <button class="primary" style="margin-top:12px" onclick="runOCR()">開始辨識</button>
       <div id="ocrStatus" class="notice"></div>
@@ -845,11 +845,13 @@ function aggressivePhoneCandidates(text=''){
 }
 
 function mergeAggressivePhones(existing, ...texts){
-  const map=new Map();
-  for(const c of (existing||[])){
-    const n=normalizePhone(c.phone);
-    if(n && !map.has(n)) map.set(n,c);
-  }
+  // v8：原本從表格列辨識出來的資料全部保留，不以電話去重。
+  const rows=[...(existing||[])].filter(c=>normalizePhone(c.phone));
+
+  // 安全網補抓只負責「補漏掉的號碼」；
+  // 若號碼已經存在於任何列，就不額外再新增一筆未命名，避免製造假重複。
+  const seenPhones=new Set(rows.map(c=>normalizePhone(c.phone)).filter(Boolean));
+
   for(const txt of texts){
     const candidates=[
       ...extractAllLoosePhonesFromText(txt||''),
@@ -857,8 +859,9 @@ function mergeAggressivePhones(existing, ...texts){
     ];
     for(const phone of candidates){
       const n=normalizePhone(phone);
-      if(!n || map.has(n)) continue;
-      map.set(n,{
+      if(!n || seenPhones.has(n)) continue;
+      seenPhones.add(n);
+      rows.push({
         id:uid(), name:'未命名', phone,
         company:'', note:'電話補抓',
         source:'圖片辨識', status:'pending',
@@ -866,7 +869,7 @@ function mergeAggressivePhones(existing, ...texts){
       });
     }
   }
-  return [...map.values()];
+  return rows;
 }
 
 async function makePhoneColumnVariants(source){
@@ -1043,7 +1046,7 @@ async function runOCR(){
     }
 
     ocrDraft=mergeAggressivePhones(base, ret.data.text||'', ...phoneTexts);
-    status.textContent=`辨識完成，共找到 ${ocrDraft.length} 筆電話資料。此版採多輪電話補抓；姓名或公司錯誤不會刪除電話。`;
+    status.textContent=`辨識完成，共找到 ${ocrDraft.length} 筆電話資料。此版採多輪電話補抓，且重複電話不合併；姓名或公司錯誤不會刪除電話。`;
     renderOCRResults();
   }catch(e){
     console.error(e);
