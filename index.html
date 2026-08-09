@@ -10,7 +10,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
   <title>連續撥號</title>
-  <!-- OCR accuracy version: 9 row-first table scanning -->
+  <!-- OCR accuracy version: 9.1 row-first table scanning bugfix -->
 
   <style>
     :root {
@@ -1197,7 +1197,7 @@ async function runOCR(){
       }
     }
 
-    const rowFirst = await recognizePhoneRowsByBands(img);
+    const rowFirst = await recognizePhoneRowsByBands(ocrSource);
     ocrDraft=mergeRowFirstResults(base, rowFirst, ret.data.text||'', ...phoneTexts);
     status.textContent=`辨識完成，共找到 ${ocrDraft.length} 筆電話資料。此版採逐列電話辨識；不同列即使電話相同也會保留。姓名或公司錯誤不會刪除電話。`;
     renderOCRResults();
