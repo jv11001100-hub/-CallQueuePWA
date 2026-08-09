@@ -1,0 +1,498 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#111111">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="連續撥號">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <title>連續撥號</title>
+  <style>
+    :root {
+      --bg:#f4f4f6;
+      --card:#ffffff;
+      --text:#111111;
+      --muted:#6e6e73;
+      --line:#dedee3;
+      --primary:#111111;
+      --danger:#b42318;
+      --success:#067647;
+    }
+    * { box-sizing:border-box; }
+    body {
+      margin:0;
+      font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif;
+      background:var(--bg);
+      color:var(--text);
+      padding-bottom:88px;
+    }
+    header {
+      position:sticky; top:0; z-index:10;
+      padding:18px 18px 12px;
+      background:rgba(244,244,246,.92);
+      backdrop-filter:blur(16px);
+      border-bottom:1px solid rgba(0,0,0,.05);
+    }
+    h1 { margin:0; font-size:28px; }
+    .sub { color:var(--muted); font-size:13px; margin-top:4px; }
+    main { padding:16px; max-width:720px; margin:0 auto; }
+    .grid {
+      display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:14px;
+    }
+    .stat {
+      background:var(--card); border-radius:16px; padding:12px 8px; text-align:center;
+      box-shadow:0 1px 2px rgba(0,0,0,.04);
+    }
+    .stat b { display:block; font-size:20px; }
+    .stat span { color:var(--muted); font-size:11px; }
+    .card {
+      background:var(--card); border-radius:22px; padding:18px; margin-bottom:14px;
+      box-shadow:0 1px 3px rgba(0,0,0,.05);
+    }
+    .label { color:var(--muted); font-size:12px; margin-bottom:6px; }
+    .name { font-size:34px; font-weight:750; margin-bottom:4px; }
+    .phone { font-size:20px; margin-bottom:10px; }
+    .meta { color:var(--muted); font-size:14px; line-height:1.6; }
+    button, .button {
+      appearance:none; border:0; border-radius:16px; padding:15px 16px;
+      width:100%; font-size:17px; font-weight:650; cursor:pointer;
+      background:#e9e9ec; color:var(--text); text-align:center;
+      text-decoration:none; display:block;
+    }
+    .primary { background:var(--primary); color:#fff; }
+    .danger { color:var(--danger); }
+    .success { color:var(--success); }
+    .row { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px; }
+    .stack > * + * { margin-top:10px; }
+    input, textarea, select {
+      width:100%; border:1px solid var(--line); background:#fff; border-radius:14px;
+      padding:13px 14px; font-size:16px; outline:none;
+    }
+    textarea { min-height:76px; resize:vertical; }
+    .field { margin-bottom:10px; }
+    .list-item {
+      background:#fff; border-radius:16px; padding:14px; margin-bottom:9px;
+      display:flex; justify-content:space-between; gap:10px; align-items:flex-start;
+    }
+    .list-item .left { min-width:0; }
+    .list-item strong { display:block; font-size:17px; }
+    .list-item small { color:var(--muted); display:block; margin-top:3px; word-break:break-all; }
+    .badge {
+      font-size:11px; color:var(--muted); background:#f0f0f2; padding:5px 8px; border-radius:99px;
+      white-space:nowrap;
+    }
+    .nav {
+      position:fixed; left:0; right:0; bottom:0; z-index:20;
+      display:grid; grid-template-columns:repeat(4,1fr);
+      background:rgba(255,255,255,.94); backdrop-filter:blur(18px);
+      border-top:1px solid rgba(0,0,0,.08);
+      padding:8px 8px calc(8px + env(safe-area-inset-bottom));
+    }
+    .nav button {
+      padding:8px 2px; background:transparent; color:var(--muted);
+      font-size:12px; border-radius:10px;
+    }
+    .nav button.active { color:#000; font-weight:700; }
+    .hidden { display:none !important; }
+    .notice {
+      color:var(--muted); font-size:13px; line-height:1.5; padding:10px 2px;
+    }
+    .empty {
+      text-align:center; color:var(--muted); padding:48px 12px;
+    }
+    .top-actions { display:flex; gap:8px; margin-bottom:12px; }
+    .top-actions button { font-size:14px; padding:11px; }
+    .ocr-box {
+      border:1px dashed var(--line); padding:14px; border-radius:16px; background:#fafafa;
+      margin-top:10px;
+    }
+  </style>
+</head>
+<body>
+<header>
+  <h1>連續撥號</h1>
+  <div class="sub">拍照名單 → 確認 → 逐筆撥號</div>
+</header>
+
+<main>
+  <section id="tab-call">
+    <div class="grid">
+      <div class="stat"><b id="statRemain">0</b><span>剩餘</span></div>
+      <div class="stat"><b id="statToday">0</b><span>今日撥打</span></div>
+      <div class="stat"><b id="statDone">0</b><span>完成</span></div>
+      <div class="stat"><b id="statNoAnswer">0</b><span>未接</span></div>
+    </div>
+
+    <div id="callCard" class="card hidden">
+      <div class="label">下一位</div>
+      <div id="callName" class="name"></div>
+      <div id="callPhone" class="phone"></div>
+      <div id="callMeta" class="meta"></div>
+    </div>
+
+    <div id="callActions" class="stack hidden">
+      <a id="dialButton" class="button primary" href="#">撥打</a>
+      <div class="row">
+        <button class="success" onclick="finishCurrent('completed')">已完成</button>
+        <button class="danger" onclick="finishCurrent('noAnswer')">未接</button>
+      </div>
+      <button onclick="finishCurrent('retry')">稍後再打，移到最後</button>
+    </div>
+
+    <div id="callEmpty" class="empty">
+      目前沒有待撥名單。<br>可以到「拍照匯入」或「名單」新增。
+    </div>
+  </section>
+
+  <section id="tab-list" class="hidden">
+    <div class="top-actions">
+      <button onclick="showAddForm()">＋ 手動新增</button>
+      <button onclick="resetAll()">全部重設待撥</button>
+    </div>
+    <input id="searchInput" placeholder="搜尋姓名、電話、公司、來源" oninput="renderList()">
+    <div id="listContainer" style="margin-top:12px;"></div>
+  </section>
+
+  <section id="tab-import" class="hidden">
+    <div class="card">
+      <div class="label">拍照或從相簿選擇名單</div>
+      <input id="imageInput" type="file" accept="image/*" capture="environment">
+      <div class="notice">
+        iPhone Safari 可直接開啟相機。選取照片後，會嘗試在瀏覽器內辨識文字。辨識完成後請先確認資料，再加入名單。
+      </div>
+      <button class="primary" onclick="runOCR()">開始辨識</button>
+      <div id="ocrStatus" class="notice"></div>
+    </div>
+    <div id="ocrResults"></div>
+  </section>
+
+  <section id="tab-stats" class="hidden">
+    <div class="card">
+      <div class="label">今日統計</div>
+      <div class="grid" style="margin:0;">
+        <div class="stat"><b id="sToday">0</b><span>撥打</span></div>
+        <div class="stat"><b id="sDone">0</b><span>完成</span></div>
+        <div class="stat"><b id="sNoAnswer">0</b><span>未接</span></div>
+        <div class="stat"><b id="sRetry">0</b><span>稍後再打</span></div>
+      </div>
+    </div>
+    <div id="logContainer"></div>
+  </section>
+</main>
+
+<div class="nav">
+  <button id="nav-call" class="active" onclick="switchTab('call')">撥號</button>
+  <button id="nav-list" onclick="switchTab('list')">名單</button>
+  <button id="nav-import" onclick="switchTab('import')">拍照匯入</button>
+  <button id="nav-stats" onclick="switchTab('stats')">統計</button>
+</div>
+
+<dialog id="editDialog" style="border:0;border-radius:22px;width:min(92vw,520px);padding:0;">
+  <form method="dialog" class="card" style="margin:0;">
+    <div class="label" id="dialogTitle">新增客戶</div>
+    <input type="hidden" id="editId">
+    <div class="field"><input id="editName" placeholder="姓名"></div>
+    <div class="field"><input id="editPhone" placeholder="電話" inputmode="tel"></div>
+    <div class="field"><input id="editCompany" placeholder="公司"></div>
+    <div class="field"><input id="editSource" placeholder="來源"></div>
+    <div class="field"><textarea id="editNote" placeholder="備註"></textarea></div>
+    <div class="row">
+      <button value="cancel">取消</button>
+      <button type="button" class="primary" onclick="saveEdit()">儲存</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script>
+const KEY_CONTACTS = 'callqueue.contacts.v1';
+const KEY_LOGS = 'callqueue.logs.v1';
+
+let contacts = JSON.parse(localStorage.getItem(KEY_CONTACTS) || '[]');
+let logs = JSON.parse(localStorage.getItem(KEY_LOGS) || '[]');
+let ocrDraft = [];
+
+function uid() {
+  return crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)+Date.now();
+}
+function save() {
+  localStorage.setItem(KEY_CONTACTS, JSON.stringify(contacts));
+  localStorage.setItem(KEY_LOGS, JSON.stringify(logs));
+  renderAll();
+}
+function normalizePhone(v='') {
+  return v.replace(/[^\d+]/g,'');
+}
+function pendingContacts() {
+  return contacts.filter(c => c.status === 'pending' || c.status === 'retry');
+}
+function nextContact() {
+  return pendingContacts()[0] || null;
+}
+function todayISO() {
+  const d = new Date();
+  return d.toISOString().slice(0,10);
+}
+function todayLogs() {
+  const t = todayISO();
+  return logs.filter(l => l.day === t);
+}
+function switchTab(name) {
+  ['call','list','import','stats'].forEach(t => {
+    document.getElementById('tab-'+t).classList.toggle('hidden', t !== name);
+    document.getElementById('nav-'+t).classList.toggle('active', t === name);
+  });
+  renderAll();
+}
+function renderCall() {
+  const c = nextContact();
+  const empty = document.getElementById('callEmpty');
+  const card = document.getElementById('callCard');
+  const actions = document.getElementById('callActions');
+  if (!c) {
+    empty.classList.remove('hidden');
+    card.classList.add('hidden');
+    actions.classList.add('hidden');
+  } else {
+    empty.classList.add('hidden');
+    card.classList.remove('hidden');
+    actions.classList.remove('hidden');
+    document.getElementById('callName').textContent = c.name || '未命名';
+    document.getElementById('callPhone').textContent = c.phone || '';
+    const meta = [];
+    if (c.company) meta.push('公司：'+c.company);
+    if (c.source) meta.push('來源：'+c.source);
+    if (c.note) meta.push('備註：'+c.note);
+    meta.push('已撥 '+(c.callCount||0)+' 次');
+    document.getElementById('callMeta').innerHTML = meta.join('<br>');
+    const dial = document.getElementById('dialButton');
+    dial.href = 'tel:' + encodeURIComponent(normalizePhone(c.phone));
+    dial.onclick = () => {
+      c.callCount = (c.callCount||0) + 1;
+      c.lastCalledAt = new Date().toISOString();
+      localStorage.setItem(KEY_CONTACTS, JSON.stringify(contacts));
+      setTimeout(renderAll, 500);
+    };
+    dial.textContent = '撥打 ' + (c.name || '');
+  }
+  const tlogs = todayLogs();
+  document.getElementById('statRemain').textContent = pendingContacts().length;
+  document.getElementById('statToday').textContent = tlogs.length;
+  document.getElementById('statDone').textContent = tlogs.filter(x=>x.result==='completed').length;
+  document.getElementById('statNoAnswer').textContent = tlogs.filter(x=>x.result==='noAnswer').length;
+}
+function finishCurrent(result) {
+  const c = nextContact();
+  if (!c) return;
+  c.status = result;
+  logs.push({
+    id: uid(),
+    contactId: c.id,
+    name: c.name,
+    phone: c.phone,
+    result,
+    time: new Date().toISOString(),
+    day: todayISO()
+  });
+  if (result === 'noAnswer' || result === 'retry') {
+    contacts = contacts.filter(x => x.id !== c.id);
+    contacts.push(c);
+  }
+  save();
+}
+function resultLabel(v) {
+  return ({pending:'待撥',completed:'已完成',noAnswer:'未接',retry:'稍後再打'})[v] || v;
+}
+function renderList() {
+  const q = (document.getElementById('searchInput')?.value || '').toLowerCase();
+  const el = document.getElementById('listContainer');
+  if (!el) return;
+  const data = contacts.filter(c => [c.name,c.phone,c.company,c.source].join(' ').toLowerCase().includes(q));
+  if (!data.length) {
+    el.innerHTML = '<div class="empty">目前沒有資料</div>';
+    return;
+  }
+  el.innerHTML = data.map(c => `
+    <div class="list-item" onclick="editContact('${c.id}')">
+      <div class="left">
+        <strong>${escapeHTML(c.name || '未命名')}</strong>
+        <small>${escapeHTML(c.phone || '')}</small>
+        ${c.company ? `<small>${escapeHTML(c.company)}</small>` : ''}
+      </div>
+      <span class="badge">${resultLabel(c.status)}</span>
+    </div>
+  `).join('');
+}
+function showAddForm() {
+  document.getElementById('dialogTitle').textContent = '新增客戶';
+  ['editId','editName','editPhone','editCompany','editSource','editNote'].forEach(id => document.getElementById(id).value='');
+  document.getElementById('editDialog').showModal();
+}
+function editContact(id) {
+  const c = contacts.find(x=>x.id===id);
+  if (!c) return;
+  document.getElementById('dialogTitle').textContent = '編輯客戶';
+  document.getElementById('editId').value = c.id;
+  document.getElementById('editName').value = c.name || '';
+  document.getElementById('editPhone').value = c.phone || '';
+  document.getElementById('editCompany').value = c.company || '';
+  document.getElementById('editSource').value = c.source || '';
+  document.getElementById('editNote').value = c.note || '';
+  document.getElementById('editDialog').showModal();
+}
+function saveEdit() {
+  const id = document.getElementById('editId').value;
+  const payload = {
+    name: document.getElementById('editName').value.trim(),
+    phone: document.getElementById('editPhone').value.trim(),
+    company: document.getElementById('editCompany').value.trim(),
+    source: document.getElementById('editSource').value.trim(),
+    note: document.getElementById('editNote').value.trim()
+  };
+  if (id) {
+    const c = contacts.find(x=>x.id===id);
+    Object.assign(c, payload);
+  } else {
+    contacts.push({
+      id:uid(), ...payload,
+      status:'pending', callCount:0, createdAt:new Date().toISOString()
+    });
+  }
+  document.getElementById('editDialog').close();
+  save();
+}
+function resetAll() {
+  contacts.forEach(c => c.status='pending');
+  save();
+}
+function parseOCRText(text) {
+  const lines = text.split(/\n+/).map(x=>x.trim()).filter(Boolean);
+  const phoneRegex = /(?:\+?886[\s-]?)?(?:0?9\d{2}[\s-]?\d{3}[\s-]?\d{3}|0\d{1,2}[\s-]?\d{3,4}[\s-]?\d{3,4})/;
+  const companyWords = ['公司','企業','實業','股份','有限公司','工作室','商行','工程','科技','國際','行銷'];
+  const out = [];
+  for (let i=0;i<lines.length;i++) {
+    const line = lines[i];
+    const m = line.match(phoneRegex);
+    if (!m) continue;
+    const phone = m[0];
+    const before = line.slice(0,m.index).trim();
+    const after = line.slice(m.index + m[0].length).trim();
+    let name='', company='', note='';
+    [before,after].filter(Boolean).forEach(v=>{
+      if (companyWords.some(w=>v.includes(w))) company = company || v;
+      else if (!name && v.length <= 20) name = v;
+      else note = [note,v].filter(Boolean).join(' ');
+    });
+    if (!name && i>0) {
+      const p = lines[i-1];
+      if (!phoneRegex.test(p) && p.length <= 20 && !companyWords.some(w=>p.includes(w))) name=p;
+    }
+    if (!company && i>0) {
+      const p = lines[i-1];
+      if (companyWords.some(w=>p.includes(w))) company=p;
+    }
+    out.push({
+      id:uid(), name:name||'未命名', phone, company, note, source:'拍照辨識',
+      status:'pending', callCount:0, createdAt:new Date().toISOString()
+    });
+  }
+  return out;
+}
+async function runOCR() {
+  const input = document.getElementById('imageInput');
+  const status = document.getElementById('ocrStatus');
+  if (!input.files || !input.files[0]) {
+    status.textContent = '請先拍照或選擇一張圖片。';
+    return;
+  }
+  status.textContent = '正在辨識文字，第一次使用可能需要載入辨識元件…';
+  try {
+    const { data:{ text } } = await Tesseract.recognize(input.files[0], 'chi_tra+eng', {
+      logger: m => {
+        if (m.status === 'recognizing text') {
+          status.textContent = '辨識中 ' + Math.round((m.progress||0)*100) + '%';
+        }
+      }
+    });
+    ocrDraft = parseOCRText(text);
+    status.textContent = `辨識完成，共找到 ${ocrDraft.length} 筆可能的電話資料。`;
+    renderOCRResults();
+  } catch (e) {
+    console.error(e);
+    status.textContent = '辨識失敗。你仍可以改用手動新增名單。';
+  }
+}
+function renderOCRResults() {
+  const el = document.getElementById('ocrResults');
+  if (!ocrDraft.length) {
+    el.innerHTML = '<div class="empty">沒有辨識到可用的電話資料</div>';
+    return;
+  }
+  el.innerHTML = `
+    <div class="card">
+      <div class="label">辨識結果，可直接修改</div>
+      ${ocrDraft.map((c,i)=>`
+        <div class="ocr-box">
+          <div class="field"><input value="${attr(c.name)}" oninput="ocrDraft[${i}].name=this.value" placeholder="姓名"></div>
+          <div class="field"><input value="${attr(c.phone)}" oninput="ocrDraft[${i}].phone=this.value" placeholder="電話" inputmode="tel"></div>
+          <div class="field"><input value="${attr(c.company)}" oninput="ocrDraft[${i}].company=this.value" placeholder="公司"></div>
+          <div class="field"><input value="${attr(c.note)}" oninput="ocrDraft[${i}].note=this.value" placeholder="備註"></div>
+          <button class="danger" onclick="ocrDraft.splice(${i},1);renderOCRResults()">刪除此筆</button>
+        </div>
+      `).join('')}
+      <button class="primary" style="margin-top:12px" onclick="importOCR()">加入 ${ocrDraft.length} 筆待撥名單</button>
+    </div>`;
+}
+function importOCR() {
+  const existing = new Set(contacts.map(c=>normalizePhone(c.phone)));
+  let added=0;
+  ocrDraft.forEach(c=>{
+    const n = normalizePhone(c.phone);
+    if (!n || existing.has(n)) return;
+    contacts.push(c); existing.add(n); added++;
+  });
+  ocrDraft=[];
+  document.getElementById('ocrResults').innerHTML='';
+  document.getElementById('ocrStatus').textContent = `已加入 ${added} 筆，重複電話已略過。`;
+  save();
+}
+function renderStats() {
+  const t = todayLogs();
+  document.getElementById('sToday').textContent = t.length;
+  document.getElementById('sDone').textContent = t.filter(x=>x.result==='completed').length;
+  document.getElementById('sNoAnswer').textContent = t.filter(x=>x.result==='noAnswer').length;
+  document.getElementById('sRetry').textContent = t.filter(x=>x.result==='retry').length;
+  const el = document.getElementById('logContainer');
+  if (!t.length) {
+    el.innerHTML = '<div class="empty">今天還沒有撥號紀錄</div>';
+    return;
+  }
+  el.innerHTML = t.slice().reverse().map(l=>`
+    <div class="list-item">
+      <div class="left">
+        <strong>${escapeHTML(l.name || '未命名')}</strong>
+        <small>${escapeHTML(l.phone || '')}</small>
+        <small>${new Date(l.time).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'})}</small>
+      </div>
+      <span class="badge">${resultLabel(l.result)}</span>
+    </div>
+  `).join('');
+}
+function renderAll() {
+  renderCall(); renderList(); renderStats();
+}
+function escapeHTML(s='') {
+  return s.replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function attr(s='') { return escapeHTML(s).replace(/"/g,'&quot;'); }
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(console.error);
+}
+renderAll();
+</script>
+</body>
+</html>
