@@ -5,112 +5,109 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#111111">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="連續撥號">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
   <title>連續撥號</title>
+
   <style>
     :root {
       --bg:#f4f4f6;
-      --card:#ffffff;
-      --text:#111111;
-      --muted:#6e6e73;
-      --line:#dedee3;
-      --primary:#111111;
+      --card:#fff;
+      --text:#111;
+      --muted:#7a7a80;
+      --line:#e3e3e8;
+      --primary:#111;
       --danger:#b42318;
       --success:#067647;
     }
-    * { box-sizing:border-box; }
-    body {
+    *{box-sizing:border-box}
+    body{
       margin:0;
       font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif;
       background:var(--bg);
       color:var(--text);
       padding-bottom:88px;
     }
-    header {
-      position:sticky; top:0; z-index:10;
-      padding:18px 18px 12px;
-      background:rgba(244,244,246,.92);
+    header{
+      padding:44px 30px 26px;
+      border-bottom:1px solid var(--line);
+      background:rgba(244,244,246,.95);
+      position:sticky;top:0;z-index:10;
       backdrop-filter:blur(16px);
-      border-bottom:1px solid rgba(0,0,0,.05);
     }
-    h1 { margin:0; font-size:28px; }
-    .sub { color:var(--muted); font-size:13px; margin-top:4px; }
-    main { padding:16px; max-width:720px; margin:0 auto; }
-    .grid {
-      display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:14px;
+    h1{font-size:30px;margin:0 0 8px;font-weight:800}
+    .sub{font-size:16px;color:var(--muted)}
+    main{padding:28px 30px;max-width:760px;margin:auto}
+    .grid{
+      display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px
     }
-    .stat {
-      background:var(--card); border-radius:16px; padding:12px 8px; text-align:center;
-      box-shadow:0 1px 2px rgba(0,0,0,.04);
+    .stat{
+      background:var(--card);border-radius:22px;padding:24px 6px;text-align:center;
+      box-shadow:0 1px 3px rgba(0,0,0,.04)
     }
-    .stat b { display:block; font-size:20px; }
-    .stat span { color:var(--muted); font-size:11px; }
-    .card {
-      background:var(--card); border-radius:22px; padding:18px; margin-bottom:14px;
-      box-shadow:0 1px 3px rgba(0,0,0,.05);
+    .stat b{display:block;font-size:28px}
+    .stat span{display:block;font-size:15px;color:var(--muted);margin-top:8px}
+    .card{
+      background:#fff;border-radius:24px;padding:26px;margin-bottom:16px;
+      box-shadow:0 1px 3px rgba(0,0,0,.04)
     }
-    .label { color:var(--muted); font-size:12px; margin-bottom:6px; }
-    .name { font-size:34px; font-weight:750; margin-bottom:4px; }
-    .phone { font-size:20px; margin-bottom:10px; }
-    .meta { color:var(--muted); font-size:14px; line-height:1.6; }
-    button, .button {
-      appearance:none; border:0; border-radius:16px; padding:15px 16px;
-      width:100%; font-size:17px; font-weight:650; cursor:pointer;
-      background:#e9e9ec; color:var(--text); text-align:center;
-      text-decoration:none; display:block;
+    .label{font-size:13px;color:var(--muted);margin-bottom:8px}
+    .name{font-size:34px;font-weight:800;margin-bottom:6px}
+    .phone{font-size:23px;margin-bottom:14px}
+    .meta{font-size:15px;color:var(--muted);line-height:1.6}
+    button,.button{
+      width:100%;border:0;border-radius:17px;padding:16px 14px;
+      font-size:17px;font-weight:700;background:#e9e9ed;color:#111;
+      text-decoration:none;text-align:center;display:block
     }
-    .primary { background:var(--primary); color:#fff; }
-    .danger { color:var(--danger); }
-    .success { color:var(--success); }
-    .row { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px; }
-    .stack > * + * { margin-top:10px; }
-    input, textarea, select {
-      width:100%; border:1px solid var(--line); background:#fff; border-radius:14px;
-      padding:13px 14px; font-size:16px; outline:none;
+    .primary{background:#111;color:#fff}
+    .success{color:var(--success)}
+    .danger{color:var(--danger)}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .stack>*+*{margin-top:10px}
+    .empty{text-align:center;color:var(--muted);font-size:18px;line-height:1.6;padding:90px 20px}
+    .nav{
+      position:fixed;bottom:0;left:0;right:0;background:rgba(255,255,255,.96);
+      border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(4,1fr);
+      padding:8px 6px calc(8px + env(safe-area-inset-bottom));z-index:50;
+      backdrop-filter:blur(18px)
     }
-    textarea { min-height:76px; resize:vertical; }
-    .field { margin-bottom:10px; }
-    .list-item {
-      background:#fff; border-radius:16px; padding:14px; margin-bottom:9px;
-      display:flex; justify-content:space-between; gap:10px; align-items:flex-start;
+    .nav button{background:transparent;color:var(--muted);font-size:13px;padding:10px 0}
+    .nav button.active{color:#111}
+    .hidden{display:none!important}
+    .list-item{
+      background:#fff;border-radius:21px;padding:20px;margin-bottom:12px;
+      display:flex;justify-content:space-between;gap:12px
     }
-    .list-item .left { min-width:0; }
-    .list-item strong { display:block; font-size:17px; }
-    .list-item small { color:var(--muted); display:block; margin-top:3px; word-break:break-all; }
-    .badge {
-      font-size:11px; color:var(--muted); background:#f0f0f2; padding:5px 8px; border-radius:99px;
-      white-space:nowrap;
+    .list-item strong{display:block;font-size:20px}
+    .list-item small{display:block;color:var(--muted);font-size:15px;margin-top:6px;line-height:1.5}
+    .badge{
+      background:#f1f1f3;color:var(--muted);font-size:13px;padding:8px 10px;
+      border-radius:999px;height:max-content;white-space:nowrap
     }
-    .nav {
-      position:fixed; left:0; right:0; bottom:0; z-index:20;
-      display:grid; grid-template-columns:repeat(4,1fr);
-      background:rgba(255,255,255,.94); backdrop-filter:blur(18px);
-      border-top:1px solid rgba(0,0,0,.08);
-      padding:8px 8px calc(8px + env(safe-area-inset-bottom));
+    input,textarea{
+      width:100%;border:1px solid var(--line);border-radius:14px;padding:13px;
+      font-size:16px;background:#fff
     }
-    .nav button {
-      padding:8px 2px; background:transparent; color:var(--muted);
-      font-size:12px; border-radius:10px;
-    }
-    .nav button.active { color:#000; font-weight:700; }
-    .hidden { display:none !important; }
-    .notice {
-      color:var(--muted); font-size:13px; line-height:1.5; padding:10px 2px;
-    }
-    .empty {
-      text-align:center; color:var(--muted); padding:48px 12px;
-    }
-    .top-actions { display:flex; gap:8px; margin-bottom:12px; }
-    .top-actions button { font-size:14px; padding:11px; }
-    .ocr-box {
-      border:1px dashed var(--line); padding:14px; border-radius:16px; background:#fafafa;
-      margin-top:10px;
+    textarea{min-height:80px;resize:vertical}
+    .field{margin-bottom:10px}
+    .top-actions{display:flex;gap:10px;margin-bottom:14px}
+    .top-actions button{font-size:14px}
+    .notice{font-size:13px;color:var(--muted);line-height:1.5;margin-top:10px}
+    .ocr-box{border:1px solid var(--line);border-radius:18px;padding:16px;margin-top:12px}
+    dialog{border:0;border-radius:24px;padding:0;width:min(92vw,520px)}
+    @media(max-width:520px){
+      header{padding-left:30px;padding-right:30px}
+      main{padding-left:30px;padding-right:30px}
+      .grid{gap:14px}
+      .stat{padding:22px 4px}
+      .stat b{font-size:25px}
     }
   </style>
 </head>
+
 <body>
 <header>
   <h1>連續撥號</h1>
@@ -153,17 +150,17 @@
       <button onclick="resetAll()">全部重設待撥</button>
     </div>
     <input id="searchInput" placeholder="搜尋姓名、電話、公司、來源" oninput="renderList()">
-    <div id="listContainer" style="margin-top:12px;"></div>
+    <div id="listContainer" style="margin-top:12px"></div>
   </section>
 
   <section id="tab-import" class="hidden">
     <div class="card">
-      <div class="label">拍照或從相簿選擇名單</div>
+      <div class="label">拍照或選擇名單圖片</div>
       <input id="imageInput" type="file" accept="image/*" capture="environment">
       <div class="notice">
-        iPhone Safari 可直接開啟相機。選取照片後，會嘗試在瀏覽器內辨識文字。辨識完成後請先確認資料，再加入名單。
+        辨識後會先顯示結果，請確認姓名與電話，再加入待撥名單。
       </div>
-      <button class="primary" onclick="runOCR()">開始辨識</button>
+      <button class="primary" style="margin-top:12px" onclick="runOCR()">開始辨識</button>
       <div id="ocrStatus" class="notice"></div>
     </div>
     <div id="ocrResults"></div>
@@ -172,7 +169,7 @@
   <section id="tab-stats" class="hidden">
     <div class="card">
       <div class="label">今日統計</div>
-      <div class="grid" style="margin:0;">
+      <div class="grid" style="margin:0">
         <div class="stat"><b id="sToday">0</b><span>撥打</span></div>
         <div class="stat"><b id="sDone">0</b><span>完成</span></div>
         <div class="stat"><b id="sNoAnswer">0</b><span>未接</span></div>
@@ -190,8 +187,8 @@
   <button id="nav-stats" onclick="switchTab('stats')">統計</button>
 </div>
 
-<dialog id="editDialog" style="border:0;border-radius:22px;width:min(92vw,520px);padding:0;">
-  <form method="dialog" class="card" style="margin:0;">
+<dialog id="editDialog">
+  <form method="dialog" class="card" style="margin:0">
     <div class="label" id="dialogTitle">新增客戶</div>
     <input type="hidden" id="editId">
     <div class="field"><input id="editName" placeholder="姓名"></div>
@@ -207,233 +204,415 @@
 </dialog>
 
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
 <script>
-const KEY_CONTACTS = 'callqueue.contacts.v1';
-const KEY_LOGS = 'callqueue.logs.v1';
+const KEY_CONTACTS='callqueue.contacts.v2';
+const KEY_LOGS='callqueue.logs.v2';
 
-let contacts = JSON.parse(localStorage.getItem(KEY_CONTACTS) || '[]');
-let logs = JSON.parse(localStorage.getItem(KEY_LOGS) || '[]');
-let ocrDraft = [];
+let contacts=[];
+let logs=[];
+let ocrDraft=[];
 
-function uid() {
-  return crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)+Date.now();
-}
-function save() {
+function migrateOldData(){
+  const oldContacts = JSON.parse(localStorage.getItem('callqueue.contacts.v1') || '[]');
+  const oldLogs = JSON.parse(localStorage.getItem('callqueue.logs.v1') || '[]');
+
+  const newContacts = JSON.parse(localStorage.getItem(KEY_CONTACTS) || 'null');
+  const newLogs = JSON.parse(localStorage.getItem(KEY_LOGS) || 'null');
+
+  contacts = newContacts ?? oldContacts.map(c => ({
+    ...c,
+    status: (c.status==='completed'||c.status==='noAnswer'||c.status==='retry') ? c.status : 'pending'
+  }));
+
+  logs = newLogs ?? oldLogs;
+
   localStorage.setItem(KEY_CONTACTS, JSON.stringify(contacts));
   localStorage.setItem(KEY_LOGS, JSON.stringify(logs));
-  renderAll();
 }
-function normalizePhone(v='') {
+migrateOldData();
+
+function uid(){
+  return crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)+Date.now();
+}
+function normalizePhone(v=''){
   return v.replace(/[^\d+]/g,'');
 }
-function pendingContacts() {
-  return contacts.filter(c => c.status === 'pending' || c.status === 'retry');
+function save(){
+  localStorage.setItem(KEY_CONTACTS,JSON.stringify(contacts));
+  localStorage.setItem(KEY_LOGS,JSON.stringify(logs));
+  renderAll();
 }
-function nextContact() {
+function pendingContacts(){
+  return contacts.filter(c => c.status==='pending' || c.status==='retry');
+}
+function nextContact(){
   return pendingContacts()[0] || null;
 }
-function todayISO() {
-  const d = new Date();
-  return d.toISOString().slice(0,10);
+function todayISO(){
+  const d=new Date();
+  const y=d.getFullYear();
+  const m=String(d.getMonth()+1).padStart(2,'0');
+  const day=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
 }
-function todayLogs() {
-  const t = todayISO();
-  return logs.filter(l => l.day === t);
+function todayLogs(){
+  const t=todayISO();
+  return logs.filter(l => l.day===t);
 }
-function switchTab(name) {
-  ['call','list','import','stats'].forEach(t => {
-    document.getElementById('tab-'+t).classList.toggle('hidden', t !== name);
-    document.getElementById('nav-'+t).classList.toggle('active', t === name);
+function switchTab(name){
+  ['call','list','import','stats'].forEach(t=>{
+    document.getElementById('tab-'+t).classList.toggle('hidden',t!==name);
+    document.getElementById('nav-'+t).classList.toggle('active',t===name);
   });
   renderAll();
 }
-function renderCall() {
-  const c = nextContact();
-  const empty = document.getElementById('callEmpty');
-  const card = document.getElementById('callCard');
-  const actions = document.getElementById('callActions');
-  if (!c) {
+
+function renderCall(){
+  const c=nextContact();
+  const empty=document.getElementById('callEmpty');
+  const card=document.getElementById('callCard');
+  const actions=document.getElementById('callActions');
+
+  if(!c){
     empty.classList.remove('hidden');
     card.classList.add('hidden');
     actions.classList.add('hidden');
-  } else {
+  }else{
     empty.classList.add('hidden');
     card.classList.remove('hidden');
     actions.classList.remove('hidden');
-    document.getElementById('callName').textContent = c.name || '未命名';
-    document.getElementById('callPhone').textContent = c.phone || '';
-    const meta = [];
-    if (c.company) meta.push('公司：'+c.company);
-    if (c.source) meta.push('來源：'+c.source);
-    if (c.note) meta.push('備註：'+c.note);
+
+    document.getElementById('callName').textContent=c.name||'未命名';
+    document.getElementById('callPhone').textContent=c.phone||'';
+
+    const meta=[];
+    if(c.company) meta.push('公司：'+c.company);
+    if(c.source) meta.push('來源：'+c.source);
+    if(c.note) meta.push('備註：'+c.note);
     meta.push('已撥 '+(c.callCount||0)+' 次');
-    document.getElementById('callMeta').innerHTML = meta.join('<br>');
-    const dial = document.getElementById('dialButton');
-    dial.href = 'tel:' + encodeURIComponent(normalizePhone(c.phone));
-    dial.onclick = () => {
-      c.callCount = (c.callCount||0) + 1;
-      c.lastCalledAt = new Date().toISOString();
-      localStorage.setItem(KEY_CONTACTS, JSON.stringify(contacts));
-      setTimeout(renderAll, 500);
+    document.getElementById('callMeta').innerHTML=meta.join('<br>');
+
+    const dial=document.getElementById('dialButton');
+    dial.href='tel:'+encodeURIComponent(normalizePhone(c.phone));
+    dial.textContent='撥打 '+(c.name||'');
+    dial.onclick=()=>{
+      c.callCount=(c.callCount||0)+1;
+      c.lastCalledAt=new Date().toISOString();
+      localStorage.setItem(KEY_CONTACTS,JSON.stringify(contacts));
     };
-    dial.textContent = '撥打 ' + (c.name || '');
   }
-  const tlogs = todayLogs();
-  document.getElementById('statRemain').textContent = pendingContacts().length;
-  document.getElementById('statToday').textContent = tlogs.length;
-  document.getElementById('statDone').textContent = tlogs.filter(x=>x.result==='completed').length;
-  document.getElementById('statNoAnswer').textContent = tlogs.filter(x=>x.result==='noAnswer').length;
+
+  const t=todayLogs();
+  document.getElementById('statRemain').textContent=pendingContacts().length;
+  document.getElementById('statToday').textContent=t.length;
+  document.getElementById('statDone').textContent=t.filter(x=>x.result==='completed').length;
+  document.getElementById('statNoAnswer').textContent=t.filter(x=>x.result==='noAnswer').length;
 }
-function finishCurrent(result) {
-  const c = nextContact();
-  if (!c) return;
-  c.status = result;
+
+function finishCurrent(result){
+  const c=nextContact();
+  if(!c) return;
+
+  c.status=result;
   logs.push({
-    id: uid(),
-    contactId: c.id,
-    name: c.name,
-    phone: c.phone,
+    id:uid(),
+    contactId:c.id,
+    name:c.name,
+    phone:c.phone,
     result,
-    time: new Date().toISOString(),
-    day: todayISO()
+    time:new Date().toISOString(),
+    day:todayISO()
   });
-  if (result === 'noAnswer' || result === 'retry') {
-    contacts = contacts.filter(x => x.id !== c.id);
+
+  if(result==='noAnswer' || result==='retry'){
+    contacts=contacts.filter(x=>x.id!==c.id);
     contacts.push(c);
   }
   save();
 }
-function resultLabel(v) {
-  return ({pending:'待撥',completed:'已完成',noAnswer:'未接',retry:'稍後再打'})[v] || v;
+
+function resultLabel(v){
+  return ({pending:'待撥',completed:'已完成',noAnswer:'未接',retry:'稍後再打'})[v]||v;
 }
-function renderList() {
-  const q = (document.getElementById('searchInput')?.value || '').toLowerCase();
-  const el = document.getElementById('listContainer');
-  if (!el) return;
-  const data = contacts.filter(c => [c.name,c.phone,c.company,c.source].join(' ').toLowerCase().includes(q));
-  if (!data.length) {
-    el.innerHTML = '<div class="empty">目前沒有資料</div>';
+
+function renderList(){
+  const el=document.getElementById('listContainer');
+  if(!el) return;
+
+  const q=(document.getElementById('searchInput')?.value||'').toLowerCase();
+  const data=contacts.filter(c=>
+    [c.name,c.phone,c.company,c.source,c.note].join(' ').toLowerCase().includes(q)
+  );
+
+  if(!data.length){
+    el.innerHTML='<div class="empty">目前沒有資料</div>';
     return;
   }
-  el.innerHTML = data.map(c => `
+
+  el.innerHTML=data.map(c=>`
     <div class="list-item" onclick="editContact('${c.id}')">
-      <div class="left">
-        <strong>${escapeHTML(c.name || '未命名')}</strong>
-        <small>${escapeHTML(c.phone || '')}</small>
-        ${c.company ? `<small>${escapeHTML(c.company)}</small>` : ''}
+      <div>
+        <strong>${escapeHTML(c.name||'未命名')}</strong>
+        <small>${escapeHTML(c.phone||'')}</small>
+        ${c.company?`<small>${escapeHTML(c.company)}</small>`:''}
+        ${c.note?`<small>${escapeHTML(c.note)}</small>`:''}
       </div>
       <span class="badge">${resultLabel(c.status)}</span>
     </div>
   `).join('');
 }
-function showAddForm() {
-  document.getElementById('dialogTitle').textContent = '新增客戶';
-  ['editId','editName','editPhone','editCompany','editSource','editNote'].forEach(id => document.getElementById(id).value='');
+
+function showAddForm(){
+  document.getElementById('dialogTitle').textContent='新增客戶';
+  ['editId','editName','editPhone','editCompany','editSource','editNote'].forEach(id=>{
+    document.getElementById(id).value='';
+  });
   document.getElementById('editDialog').showModal();
 }
-function editContact(id) {
-  const c = contacts.find(x=>x.id===id);
-  if (!c) return;
-  document.getElementById('dialogTitle').textContent = '編輯客戶';
-  document.getElementById('editId').value = c.id;
-  document.getElementById('editName').value = c.name || '';
-  document.getElementById('editPhone').value = c.phone || '';
-  document.getElementById('editCompany').value = c.company || '';
-  document.getElementById('editSource').value = c.source || '';
-  document.getElementById('editNote').value = c.note || '';
+
+function editContact(id){
+  const c=contacts.find(x=>x.id===id);
+  if(!c) return;
+  document.getElementById('dialogTitle').textContent='編輯客戶';
+  document.getElementById('editId').value=c.id;
+  document.getElementById('editName').value=c.name||'';
+  document.getElementById('editPhone').value=c.phone||'';
+  document.getElementById('editCompany').value=c.company||'';
+  document.getElementById('editSource').value=c.source||'';
+  document.getElementById('editNote').value=c.note||'';
   document.getElementById('editDialog').showModal();
 }
-function saveEdit() {
-  const id = document.getElementById('editId').value;
-  const payload = {
-    name: document.getElementById('editName').value.trim(),
-    phone: document.getElementById('editPhone').value.trim(),
-    company: document.getElementById('editCompany').value.trim(),
-    source: document.getElementById('editSource').value.trim(),
-    note: document.getElementById('editNote').value.trim()
+
+function saveEdit(){
+  const id=document.getElementById('editId').value;
+  const payload={
+    name:document.getElementById('editName').value.trim(),
+    phone:document.getElementById('editPhone').value.trim(),
+    company:document.getElementById('editCompany').value.trim(),
+    source:document.getElementById('editSource').value.trim(),
+    note:document.getElementById('editNote').value.trim()
   };
-  if (id) {
-    const c = contacts.find(x=>x.id===id);
-    Object.assign(c, payload);
-  } else {
+
+  if(id){
+    const c=contacts.find(x=>x.id===id);
+    Object.assign(c,payload);
+    if(!c.status) c.status='pending';
+  }else{
     contacts.push({
-      id:uid(), ...payload,
-      status:'pending', callCount:0, createdAt:new Date().toISOString()
+      id:uid(),
+      ...payload,
+      status:'pending',
+      callCount:0,
+      createdAt:new Date().toISOString()
     });
   }
   document.getElementById('editDialog').close();
   save();
 }
-function resetAll() {
-  contacts.forEach(c => c.status='pending');
+
+function resetAll(){
+  contacts.forEach(c=>c.status='pending');
   save();
 }
-function parseOCRText(text) {
-  const lines = text.split(/\n+/).map(x=>x.trim()).filter(Boolean);
-  const phoneRegex = /(?:\+?886[\s-]?)?(?:0?9\d{2}[\s-]?\d{3}[\s-]?\d{3}|0\d{1,2}[\s-]?\d{3,4}[\s-]?\d{3,4})/;
-  const companyWords = ['公司','企業','實業','股份','有限公司','工作室','商行','工程','科技','國際','行銷'];
-  const out = [];
-  for (let i=0;i<lines.length;i++) {
-    const line = lines[i];
-    const m = line.match(phoneRegex);
-    if (!m) continue;
-    const phone = m[0];
-    const before = line.slice(0,m.index).trim();
-    const after = line.slice(m.index + m[0].length).trim();
-    let name='', company='', note='';
-    [before,after].filter(Boolean).forEach(v=>{
-      if (companyWords.some(w=>v.includes(w))) company = company || v;
-      else if (!name && v.length <= 20) name = v;
-      else note = [note,v].filter(Boolean).join(' ');
-    });
-    if (!name && i>0) {
-      const p = lines[i-1];
-      if (!phoneRegex.test(p) && p.length <= 20 && !companyWords.some(w=>p.includes(w))) name=p;
+
+/* ---------- OCR improvements ---------- */
+
+function looksLikeRegion(s=''){
+  const x=s.replace(/\s+/g,'');
+  const regions=[
+    '臺中市','台中市','臺北市','台北市','新北市','桃園市','臺南市','台南市','高雄市',
+    '基隆市','新竹市','嘉義市','新竹縣','苗栗縣','彰化縣','南投縣','雲林縣',
+    '嘉義縣','屏東縣','宜蘭縣','花蓮縣','臺東縣','台東縣','澎湖縣','金門縣','連江縣'
+  ];
+  return regions.includes(x);
+}
+
+function looksLikeCode(s=''){
+  const x=s.replace(/\s+/g,'');
+  return /^[A-Z]{2,6}$/.test(x) || /^[A-Z0-9\-]{2,10}$/.test(x);
+}
+
+function looksLikeCompany(s=''){
+  const words=['公司','企業','實業','股份','有限公司','商行','工作室','科技','工程','國際','貿易','設計','開發','行銷','室內裝潢','工業'];
+  return words.some(w=>s.includes(w));
+}
+
+function cleanText(s=''){
+  return s.replace(/[|｜]/g,' ')
+          .replace(/[~～]+/g,' ')
+          .replace(/\s+/g,' ')
+          .trim();
+}
+
+function extractPersonFromText(s=''){
+  const t=cleanText(s);
+
+  const patterns=[
+    /(?:負責人|董事長|董事|經理|聯絡人|代表人)\s*[-:：~～]?\s*([\u4e00-\u9fff]{2,4})/,
+    /(?:先生|小姐)\s*[-:：~～]?\s*([\u4e00-\u9fff]{2,4})/
+  ];
+
+  for(const p of patterns){
+    const m=t.match(p);
+    if(m) return m[1];
+  }
+
+  // 常見格式：公司名稱 ... - 王小明
+  const tail=t.match(/[-:：~～]\s*([\u4e00-\u9fff]{2,4})$/);
+  if(tail) return tail[1];
+
+  // 找最後一個 2-4 字中文片段，但避開公司字樣
+  const chunks=[...t.matchAll(/[\u4e00-\u9fff]{2,4}/g)].map(m=>m[0]);
+  for(let i=chunks.length-1;i>=0;i--){
+    const c=chunks[i];
+    if(!['有限','公司','股份','企業','實業','工業','貿易','設計','負責人','董事長','董事'].includes(c)){
+      return c;
     }
-    if (!company && i>0) {
-      const p = lines[i-1];
-      if (companyWords.some(w=>p.includes(w))) company=p;
+  }
+  return '';
+}
+
+function parseOCRText(text){
+  const lines=text.split(/\n+/).map(cleanText).filter(Boolean);
+  const phoneRegex=/(?:\+?886[\s-]?)?(?:0?9\d{2}[\s-]?\d{3}[\s-]?\d{3}|0\d{1,2}[\s-]?\d{3,4}[\s-]?\d{3,4})/;
+
+  const out=[];
+
+  for(let i=0;i<lines.length;i++){
+    const line=lines[i];
+    const m=line.match(phoneRegex);
+    if(!m) continue;
+
+    const phone=m[0];
+    const before=cleanText(line.slice(0,m.index));
+    const after=cleanText(line.slice(m.index+m[0].length));
+
+    const nearby=[
+      i>0?lines[i-1]:'',
+      line,
+      i+1<lines.length?lines[i+1]:'',
+      i+2<lines.length?lines[i+2]:''
+    ];
+
+    let name='';
+    let company='';
+    let note='';
+
+    // 1. 先從附近行尋找「負責人/董事長/董事/聯絡人 - 姓名」
+    for(const cand of nearby){
+      const p=extractPersonFromText(cand);
+      if(p && p.length>=2 && p.length<=4){
+        name=p;
+        break;
+      }
     }
+
+    // 2. 公司名稱
+    for(const cand of nearby){
+      if(looksLikeCompany(cand)){
+        company=cand.replace(phone,'').trim();
+        break;
+      }
+    }
+
+    // 3. 如果前後文字本身像姓名才採用，排除地區與英文代碼
+    if(!name){
+      const candidates=[before,after];
+      for(const c0 of candidates){
+        const c=cleanText(c0);
+        if(!c) continue;
+        if(looksLikeRegion(c) || looksLikeCode(c) || looksLikeCompany(c)) continue;
+        if(/^[\u4e00-\u9fff]{2,4}$/.test(c)){
+          name=c;
+          break;
+        }
+      }
+    }
+
+    // 4. 再往前後找純中文姓名
+    if(!name){
+      for(const c0 of nearby){
+        const c=cleanText(c0);
+        if(!c || looksLikeRegion(c) || looksLikeCode(c) || looksLikeCompany(c)) continue;
+        if(/^[\u4e00-\u9fff]{2,4}$/.test(c)){
+          name=c;
+          break;
+        }
+      }
+    }
+
+    if(!name) name='未命名';
+
+    // 備註保留公司以外的相關字
+    note=nearby
+      .filter(c=>c && c!==company && !c.includes(phone) && !looksLikeRegion(c) && !looksLikeCode(c))
+      .join(' ')
+      .replace(name,'')
+      .trim();
+
     out.push({
-      id:uid(), name:name||'未命名', phone, company, note, source:'拍照辨識',
-      status:'pending', callCount:0, createdAt:new Date().toISOString()
+      id:uid(),
+      name,
+      phone,
+      company,
+      note,
+      source:'拍照辨識',
+      status:'pending',
+      callCount:0,
+      createdAt:new Date().toISOString()
     });
   }
-  return out;
+
+  // 依電話去重
+  const seen=new Set();
+  return out.filter(c=>{
+    const n=normalizePhone(c.phone);
+    if(!n || seen.has(n)) return false;
+    seen.add(n);
+    return true;
+  });
 }
-async function runOCR() {
-  const input = document.getElementById('imageInput');
-  const status = document.getElementById('ocrStatus');
-  if (!input.files || !input.files[0]) {
-    status.textContent = '請先拍照或選擇一張圖片。';
+
+async function runOCR(){
+  const input=document.getElementById('imageInput');
+  const status=document.getElementById('ocrStatus');
+
+  if(!input.files || !input.files[0]){
+    status.textContent='請先拍照或選擇圖片。';
     return;
   }
-  status.textContent = '正在辨識文字，第一次使用可能需要載入辨識元件…';
-  try {
-    const { data:{ text } } = await Tesseract.recognize(input.files[0], 'chi_tra+eng', {
-      logger: m => {
-        if (m.status === 'recognizing text') {
-          status.textContent = '辨識中 ' + Math.round((m.progress||0)*100) + '%';
+
+  status.textContent='正在辨識文字…';
+  try{
+    const {data:{text}}=await Tesseract.recognize(input.files[0],'chi_tra+eng',{
+      logger:m=>{
+        if(m.status==='recognizing text'){
+          status.textContent='辨識中 '+Math.round((m.progress||0)*100)+'%';
         }
       }
     });
-    ocrDraft = parseOCRText(text);
-    status.textContent = `辨識完成，共找到 ${ocrDraft.length} 筆可能的電話資料。`;
+
+    ocrDraft=parseOCRText(text);
+    status.textContent=`辨識完成，共找到 ${ocrDraft.length} 筆電話資料。`;
     renderOCRResults();
-  } catch (e) {
+  }catch(e){
     console.error(e);
-    status.textContent = '辨識失敗。你仍可以改用手動新增名單。';
+    status.textContent='辨識失敗，請重新拍攝清楚一點的名單。';
   }
 }
-function renderOCRResults() {
-  const el = document.getElementById('ocrResults');
-  if (!ocrDraft.length) {
-    el.innerHTML = '<div class="empty">沒有辨識到可用的電話資料</div>';
+
+function renderOCRResults(){
+  const el=document.getElementById('ocrResults');
+
+  if(!ocrDraft.length){
+    el.innerHTML='<div class="empty">沒有辨識到可用電話</div>';
     return;
   }
-  el.innerHTML = `
+
+  el.innerHTML=`
     <div class="card">
-      <div class="label">辨識結果，可直接修改</div>
+      <div class="label">辨識結果，可先修改再匯入</div>
       ${ocrDraft.map((c,i)=>`
         <div class="ocr-box">
           <div class="field"><input value="${attr(c.name)}" oninput="ocrDraft[${i}].name=this.value" placeholder="姓名"></div>
@@ -443,55 +622,79 @@ function renderOCRResults() {
           <button class="danger" onclick="ocrDraft.splice(${i},1);renderOCRResults()">刪除此筆</button>
         </div>
       `).join('')}
-      <button class="primary" style="margin-top:12px" onclick="importOCR()">加入 ${ocrDraft.length} 筆待撥名單</button>
-    </div>`;
+      <button class="primary" style="margin-top:14px" onclick="importOCR()">加入 ${ocrDraft.length} 筆待撥名單</button>
+    </div>
+  `;
 }
-function importOCR() {
-  const existing = new Set(contacts.map(c=>normalizePhone(c.phone)));
+
+function importOCR(){
+  const existing=new Set(contacts.map(c=>normalizePhone(c.phone)));
   let added=0;
+
   ocrDraft.forEach(c=>{
-    const n = normalizePhone(c.phone);
-    if (!n || existing.has(n)) return;
-    contacts.push(c); existing.add(n); added++;
+    const n=normalizePhone(c.phone);
+    if(!n || existing.has(n)) return;
+
+    contacts.push({
+      ...c,
+      status:'pending'
+    });
+    existing.add(n);
+    added++;
   });
+
   ocrDraft=[];
   document.getElementById('ocrResults').innerHTML='';
-  document.getElementById('ocrStatus').textContent = `已加入 ${added} 筆，重複電話已略過。`;
+  document.getElementById('ocrStatus').textContent=`已加入 ${added} 筆待撥名單。`;
+
   save();
+  switchTab('call');
 }
-function renderStats() {
-  const t = todayLogs();
-  document.getElementById('sToday').textContent = t.length;
-  document.getElementById('sDone').textContent = t.filter(x=>x.result==='completed').length;
-  document.getElementById('sNoAnswer').textContent = t.filter(x=>x.result==='noAnswer').length;
-  document.getElementById('sRetry').textContent = t.filter(x=>x.result==='retry').length;
-  const el = document.getElementById('logContainer');
-  if (!t.length) {
-    el.innerHTML = '<div class="empty">今天還沒有撥號紀錄</div>';
+
+function renderStats(){
+  const t=todayLogs();
+  document.getElementById('sToday').textContent=t.length;
+  document.getElementById('sDone').textContent=t.filter(x=>x.result==='completed').length;
+  document.getElementById('sNoAnswer').textContent=t.filter(x=>x.result==='noAnswer').length;
+  document.getElementById('sRetry').textContent=t.filter(x=>x.result==='retry').length;
+
+  const el=document.getElementById('logContainer');
+  if(!t.length){
+    el.innerHTML='<div class="empty">今天還沒有撥號紀錄</div>';
     return;
   }
-  el.innerHTML = t.slice().reverse().map(l=>`
+
+  el.innerHTML=t.slice().reverse().map(l=>`
     <div class="list-item">
-      <div class="left">
-        <strong>${escapeHTML(l.name || '未命名')}</strong>
-        <small>${escapeHTML(l.phone || '')}</small>
+      <div>
+        <strong>${escapeHTML(l.name||'未命名')}</strong>
+        <small>${escapeHTML(l.phone||'')}</small>
         <small>${new Date(l.time).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'})}</small>
       </div>
       <span class="badge">${resultLabel(l.result)}</span>
     </div>
   `).join('');
 }
-function renderAll() {
-  renderCall(); renderList(); renderStats();
-}
-function escapeHTML(s='') {
-  return s.replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-}
-function attr(s='') { return escapeHTML(s).replace(/"/g,'&quot;'); }
 
-if ('serviceWorker' in navigator) {
+function renderAll(){
+  renderCall();
+  renderList();
+  renderStats();
+}
+
+function escapeHTML(s=''){
+  return String(s).replace(/[&<>"']/g,c=>({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+}
+function attr(s=''){
+  return escapeHTML(s).replace(/"/g,'&quot;');
+}
+
+if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js').catch(console.error);
 }
+
 renderAll();
 </script>
 </body>
