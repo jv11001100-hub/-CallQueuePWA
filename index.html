@@ -10,7 +10,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
   <title>連續撥號</title>
-  <!-- OCR accuracy version: 4 table-row alignment -->
+  <!-- OCR accuracy version: 5 file/photo picker + stronger row parsing -->
 
   <style>
     :root {
@@ -156,10 +156,16 @@
 
   <section id="tab-import" class="hidden">
     <div class="card">
-      <div class="label">拍照或選擇名單圖片</div>
-      <input id="imageInput" type="file" accept="image/*" capture="environment">
+      <div class="label">匯入名單圖片</div>
+      <input id="imageInput" type="file" accept="image/*" style="display:none">
+      <input id="cameraInput" type="file" accept="image/*" capture="environment" style="display:none">
+      <div class="top-actions" style="margin-top:8px">
+        <button type="button" onclick="document.getElementById('cameraInput').click()">📷 拍照</button>
+        <button type="button" onclick="document.getElementById('imageInput').click()">🗂️ 選擇照片／檔案</button>
+      </div>
+      <div id="selectedFileName" class="notice">尚未選擇圖片</div>
       <div class="notice">
-        辨識後會先顯示結果，請確認姓名與電話，再加入待撥名單。
+        可直接拍照，也可從「照片」或「檔案」App 選擇 JPG、PNG、HEIC 等圖片。辨識後會先顯示結果，再加入待撥名單。
       </div>
       <button class="primary" style="margin-top:12px" onclick="runOCR()">開始辨識</button>
       <div id="ocrStatus" class="notice"></div>
@@ -628,7 +634,7 @@ function parseOCRText(text){
       phone,
       company,
       note,
-      source:'拍照辨識',
+      source:'圖片辨識',
       status:'pending',
       callCount:0,
       createdAt:new Date().toISOString()
@@ -748,7 +754,7 @@ function parseOCRBlocks(blocks, fallbackText=''){
     let name=parsed.name||'未命名';
     let company=parsed.company||'';
     const note=parsed.region||'';
-    out.push({id:uid(),name,phone,company,note,source:'拍照辨識',status:'pending',callCount:0,createdAt:new Date().toISOString()});
+    out.push({id:uid(),name,phone,company,note,source:'圖片辨識',status:'pending',callCount:0,createdAt:new Date().toISOString()});
   }
   // 若 blocks 沒有成功提供版面資料，才退回舊文字模式
   const source=out.length ? out : parseOCRText(fallbackText);
@@ -766,70 +772,51 @@ function parseOCRBlocks(blocks, fallbackText=''){
   return [...byPhone.values()];
 }
 
-function cleanOCRToken(s=''){ return compactChinese(s).replace(/[，,;；]+/g,' ').replace(/\s+/g,' ').trim(); }
-function flattenOCRLines(blocks){
-  const rows=[];
-  for(const b of (blocks||[])) for(const p of (b.paragraphs||[])) for(const l of (p.lines||[])){
-    const words=(l.words||[]).map(w=>({text:cleanOCRToken(w.text||''),x0:w.bbox?.x0??0,y0:w.bbox?.y0??0,x1:w.bbox?.x1??0,y1:w.bbox?.y1??0})).filter(w=>w.text);
-    if(!words.length) continue;
-    const bbox=l.bbox||{x0:Math.min(...words.map(w=>w.x0)),y0:Math.min(...words.map(w=>w.y0)),x1:Math.max(...words.map(w=>w.x1)),y1:Math.max(...words.map(w=>w.y1))};
-    rows.push({words,bbox,text:words.map(w=>w.text).join(' ')});
-  }
-  return rows;
-}
-function phoneFromLooseText(s=''){
-  const chunks=String(s).match(/[0-9OIl|\-－—\s]{8,20}/g)||[];
-  for(const raw of chunks){
-    let d=raw.replace(/O/g,'0').replace(/[Il|]/g,'1').replace(/\D/g,'');
-    if(d.startsWith('886')) d='0'+d.slice(3);
-    if(/^09\d{8}$/.test(d)||/^0[2-8]\d{7,8}$/.test(d)) return d;
-  }
-  return '';
-}
-function normalizeRegionLoose(s=''){
-  const x=compactChinese(s).replace(/\s+/g,'').replace(/^台/,'臺');
-  const rs=['臺中市','臺北市','新北市','桃園市','臺南市','高雄市','基隆市','新竹市','嘉義市','新竹縣','苗栗縣','彰化縣','南投縣','雲林縣','嘉義縣','屏東縣','宜蘭縣','花蓮縣','臺東縣','澎湖縣','金門縣','連江縣'];
-  return rs.find(r=>x.includes(r))||'';
-}
-function parseTableRowText(rowText,phone){
-  const t=compactChinese(rowText); let pos=t.indexOf(phone),plen=phone.length;
-  if(pos<0){ const m=t.match(/[0-9OIl|\-－—\s]{8,20}/); if(m){pos=m.index;plen=m[0].length;} }
-  const left=compactChinese(pos>=0?t.slice(0,pos):t), right=compactChinese(pos>=0?t.slice(pos+plen):'');
-  let region=normalizeRegionLoose(right)||normalizeRegionLoose(t),name='',company='';
-  const tm=left.match(/(負責人|監察人|董事長|董事|經理|聯絡人|代表人|負責人員|店長|主任)/);
-  if(tm){ company=compactChinese(left.slice(0,tm.index)); name=extractPersonAfterTitle(left.slice(tm.index)); }
-  else if(looksLikeCompany(left)) company=left;
-  if(company) company=stripPersonTailFromCompany(company,name);
-  return {name,company,region};
-}
-function parseOCRBlocks(blocks,fallbackText=''){
-  const lines=flattenOCRLines(blocks),out=[];
-  for(let i=0;i<lines.length;i++){
-    const row=lines[i],phone=phoneFromLooseText(row.text); if(!phone) continue;
-    let p=parseTableRowText(row.text,phone),cy=(row.bbox.y0+row.bbox.y1)/2,h=Math.max(8,row.bbox.y1-row.bbox.y0);
-    const near=lines.filter((r,j)=>j!==i&&Math.abs(((r.bbox.y0+r.bbox.y1)/2)-cy)<=h*.85&&!phoneFromLooseText(r.text));
-    const p2=parseTableRowText([row.text,...near.map(r=>r.text)].join(' '),phone);
-    if(!p.name)p.name=p2.name;if(!p.company)p.company=p2.company;if(!p.region)p.region=p2.region;
-    out.push({id:uid(),name:p.name||'未命名',phone,company:p.company||'',note:p.region||'',source:'拍照辨識',status:'pending',callCount:0,createdAt:new Date().toISOString()});
-  }
-  const source=out.length?out:parseOCRText(fallbackText),byPhone=new Map();
-  for(const c of source){const n=normalizePhone(c.phone);if(!n)continue;if(!byPhone.has(n))byPhone.set(n,c);}
-  return [...byPhone.values()];
+function syncSelectedFile(which){
+  const a=document.getElementById('imageInput');
+  const b=document.getElementById('cameraInput');
+  if(which==='image' && a.files && a.files[0]) b.value='';
+  if(which==='camera' && b.files && b.files[0]) a.value='';
+  const f=(b.files&&b.files[0])?b.files[0]:((a.files&&a.files[0])?a.files[0]:null);
+  document.getElementById('selectedFileName').textContent=f ? `已選擇：${f.name||'相機照片'}` : '尚未選擇圖片';
 }
 
+document.getElementById('imageInput').addEventListener('change',()=>syncSelectedFile('image'));
+document.getElementById('cameraInput').addEventListener('change',()=>syncSelectedFile('camera'));
+
 async function runOCR(){
-  const input=document.getElementById('imageInput'),status=document.getElementById('ocrStatus');
-  if(!input.files||!input.files[0]){status.textContent='請先拍照或選擇圖片。';return;}
-  status.textContent='正在載入辨識引擎…';let worker=null;
+  const imageInput=document.getElementById('imageInput');
+  const cameraInput=document.getElementById('cameraInput');
+  const input=(cameraInput.files&&cameraInput.files[0])?cameraInput:imageInput;
+  const status=document.getElementById('ocrStatus');
+  if(!input.files || !input.files[0]){
+    status.textContent='請先拍照或選擇圖片。';
+    return;
+  }
+  status.textContent='正在載入辨識引擎…';
+  let worker=null;
   try{
-    worker=await Tesseract.createWorker('chi_tra+eng',1,{logger:m=>{if(m.status==='recognizing text')status.textContent='辨識中 '+Math.round((m.progress||0)*100)+'%';}});
-    await worker.setParameters({tessedit_pageseg_mode:'6',preserve_interword_spaces:'1',user_defined_dpi:'300'});
+    worker=await Tesseract.createWorker('chi_tra+eng',1,{
+      logger:m=>{
+        if(m.status==='recognizing text') status.textContent='辨識中 '+Math.round((m.progress||0)*100)+'%';
+        else if(m.status) status.textContent='辨識準備中…';
+      }
+    });
+    await worker.setParameters({
+      tessedit_pageseg_mode:'6',
+      preserve_interword_spaces:'1',
+      user_defined_dpi:'300'
+    });
     const ret=await worker.recognize(input.files[0],{}, {text:true,blocks:true});
     ocrDraft=parseOCRBlocks(ret.data.blocks,ret.data.text||'');
     status.textContent=`辨識完成，共找到 ${ocrDraft.length} 筆電話資料。請確認後再加入名單。`;
     renderOCRResults();
-  }catch(e){console.error(e);status.textContent='辨識失敗，請重新拍攝清楚一點的名單。';}
-  finally{if(worker){try{await worker.terminate();}catch(_){}}}
+  }catch(e){
+    console.error(e);
+    status.textContent='辨識失敗，請重新拍攝清楚一點的名單。';
+  }finally{
+    if(worker){ try{ await worker.terminate(); }catch(_){} }
+  }
 }
 function renderOCRResults(){
   const el=document.getElementById('ocrResults');
