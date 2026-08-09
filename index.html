@@ -9,6 +9,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>連續撥號</title>
+<!-- Clean Start v1.1: metadata OCR; phone core unchanged -->
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <style>
 :root{--bg:#f4f4f6;--card:#fff;--text:#111;--muted:#7a7a80;--line:#e3e3e8;--ok:#07834d;--bad:#c5221f}
@@ -163,7 +164,56 @@ async function runOCR(){
     // 簡化策略：依出現順序取前 expected 筆；若不足，空列保留。
     ocrDraft=buildRowsFromPhoneSequence(phones, expected);
 
-    st.textContent=`完成：固定建立 ${expected} 筆。已辨識到 ${ocrDraft.filter(x=>x.phone).length} 筆電話；其餘會標示需確認。`;
+    // 附加功能：嘗試辨識姓名/公司，但絕不改動電話筆數、電話順序或電話內容。
+    st.textContent='電話已完成，正在補抓姓名 / 公司…';
+    try{
+      const metaText=await ocrOne(c,'chi_tra+eng','6');
+      const metaLines=String(metaText).split(/\n+/).map(x=>x.trim()).filter(Boolean);
+      const phoneLineIdx=[];
+      for(let i=0;i<metaLines.length;i++){
+        if(extractPhones(metaLines[i]).length) phoneLineIdx.push(i);
+      }
+
+      function cleanMeta(s=''){
+        return s.replace(/[|｜]/g,' ').replace(/\s+/g,' ').trim();
+      }
+      function companyLike(s=''){
+        return /(有限公司|股份有限公司|企業社|企業有限公司|公司|工業|實業|工程|科技|商行|行號|診所|事務所|協會|中心|工作室)/.test(s);
+      }
+      function possibleName(s=''){
+        const t=s.replace(/(董事長|負責人|經理|監察人|總經理|老闆|先生|小姐)/g,'').replace(/[^\u4e00-\u9fff]/g,'');
+        return t.length>=2 && t.length<=4 ? t : '';
+      }
+
+      for(let r=0;r<Math.min(expected,phoneLineIdx.length);r++){
+        const idx=phoneLineIdx[r];
+        const nearby=[];
+        for(let d=-1;d<=1;d++){
+          if(metaLines[idx+d]) nearby.push(cleanMeta(metaLines[idx+d]));
+        }
+        let company='', name='';
+        for(const line of nearby){
+          const noPhone=line.replace(/(?:09\d{8}|0[2-8]\d{7,8})/g,'').trim();
+          if(!company && companyLike(noPhone)) company=noPhone;
+          if(!name){
+            const m=noPhone.match(/(?:董事長|負責人|經理|監察人|總經理)\s*([\u4e00-\u9fff]{2,4})/);
+            if(m) name=m[1];
+          }
+        }
+        if(!name){
+          for(const line of nearby){
+            const n=possibleName(line);
+            if(n && !companyLike(line)){ name=n; break; }
+          }
+        }
+        if(company) ocrDraft[r].company=company;
+        if(name) ocrDraft[r].name=name;
+      }
+    }catch(metaErr){
+      console.warn('metadata OCR skipped',metaErr);
+    }
+
+    st.textContent=`完成：固定建立 ${expected} 筆。已辨識到 ${ocrDraft.filter(x=>x.phone).length} 筆電話。姓名 / 公司為附加辨識，可直接手動修改。`;
     renderOCR();
   }catch(e){
     console.error(e);
