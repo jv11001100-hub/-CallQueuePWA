@@ -9,7 +9,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>連續撥號</title>
-<!-- Clean Start v1.3: whole-image company/name OCR; phone core unchanged -->
+<!-- Clean Start v1.4: enhanced company/responsible-person OCR; phone core unchanged -->
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <style>
 :root{--bg:#f4f4f6;--card:#fff;--text:#111;--muted:#7a7a80;--line:#e3e3e8;--ok:#07834d;--bad:#c5221f}
@@ -319,6 +319,66 @@ function parseWholeImageMetadata(text='', expected=0){
   return rows;
 }
 
+
+function chineseOnly(s=''){
+  return String(s).replace(/[^\u4e00-\u9fff]/g,'');
+}
+function metadataCandidatesFromWholeText(text=''){
+  const rawLines=String(text).split(/\n+/).map(cleanRowText).filter(Boolean);
+  const companies=[], names=[];
+
+  for(const raw of rawLines){
+    let line=raw;
+
+    // Company candidates: take a Chinese phrase ending in common business suffix.
+    const cmatches=line.match(/[\u4e00-\u9fffA-Za-z0-9]{2,30}(?:股份有限公司|有限公司|企業社|企業|公司|實業|工程|科技|商行|行號|診所|事務所|協會|中心|工作室|裝潢|設計|貿易|興業|營造|建設)/g)||[];
+    for(let c of cmatches){
+      c=cleanRowText(c);
+      if(c && !companies.includes(c)) companies.push(c);
+    }
+
+    // Name candidates after role labels.
+    const roleRe=/(?:負責人|董事長|董事|經理|監察人|總經理|聯絡人|代表人)\s*[-:：~～－—]*\s*([\u4e00-\u9fff]{2,4})/g;
+    let m;
+    while((m=roleRe.exec(line))){
+      if(m[1]) names.push(m[1]);
+    }
+  }
+  return {companies,names,rawLines};
+}
+
+function metadataRowsByOrder(text='', expected=0){
+  const {companies,names,rawLines}=metadataCandidatesFromWholeText(text);
+  const rows=new Array(expected).fill(null).map(()=>({company:'',name:''}));
+
+  // First: parse each phone-bearing row or its neighbors.
+  let rowIndex=0;
+  for(let i=0;i<rawLines.length && rowIndex<expected;i++){
+    if(!extractPhones(rawLines[i]).length) continue;
+    const neighborhood=[rawLines[i-1]||'',rawLines[i],rawLines[i+1]||''].join(' ');
+    const local=metadataCandidatesFromWholeText(neighborhood);
+    if(local.companies[0]) rows[rowIndex].company=local.companies[0];
+    if(local.names[0]) rows[rowIndex].name=local.names[0];
+    rowIndex++;
+  }
+
+  // Second: fill blanks by the global visual/OCR order.
+  let ci=0, ni=0;
+  for(let i=0;i<expected;i++){
+    if(!rows[i].company && companies[ci]) rows[i].company=companies[ci++];
+    else if(rows[i].company) {
+      const at=companies.indexOf(rows[i].company);
+      if(at>=ci) ci=at+1;
+    }
+    if(!rows[i].name && names[ni]) rows[i].name=names[ni++];
+    else if(rows[i].name) {
+      const at=names.indexOf(rows[i].name);
+      if(at>=ni) ni=at+1;
+    }
+  }
+  return rows;
+}
+
 async function runOCR(){
   const expected=parseInt(document.getElementById('expectedRows').value,10);
   const file=(cameraInput.files&&cameraInput.files[0])|| (imageInput.files&&imageInput.files[0]);
@@ -337,35 +397,28 @@ async function runOCR(){
     // 簡化策略：依出現順序取前 expected 筆；若不足，空列保留。
     ocrDraft=buildRowsFromPhoneSequence(phones, expected);
 
-    // v1.3：電話核心完成後，另外整張跑繁中 OCR。
-    // 只把公司 / 姓名按列序填回去，絕不改電話筆數、順序、內容。
-    st.textContent='電話已完成，正在辨識整張名單的公司 / 姓名…';
+    // v1.4：電話 10/10 核心完全不動。
+    // 中文 OCR 只作為 metadata，依表格文字順序填入公司與負責人。
+    st.textContent='電話已完成，正在加強辨識公司 / 負責人…';
     try{
-      const metaText=await ocrOne(c,'chi_tra+eng','6');
-      const metaRows=parseWholeImageMetadata(metaText,expected);
+      // 跑兩種版面模式，增加中文表格文字命中率。
+      const metaTextA=await ocrOne(c,'chi_tra+eng','6');
+      let metaTextB='';
+      try{ metaTextB=await ocrOne(c,'chi_tra+eng','11'); }catch(_){}
+      const metaText=metaTextA+'\n'+metaTextB;
 
-      // 第一優先：按列順序填回
+      const metaRows=metadataRowsByOrder(metaText,expected);
       for(let i=0;i<ocrDraft.length;i++){
         const mr=metaRows[i];
         if(!mr) continue;
         if(mr.company) ocrDraft[i].company=mr.company;
         if(mr.name) ocrDraft[i].name=mr.name;
       }
-
-      // 第二安全網：若 OCR 的電話順序有偏差，用電話值尋找對應 metadata。
-      for(let i=0;i<ocrDraft.length;i++){
-        if(ocrDraft[i].company && ocrDraft[i].name!=='未命名') continue;
-        const p=normalizePhone(ocrDraft[i].phone);
-        const mr=metaRows.find(x=>normalizePhone(x.phone)===p);
-        if(!mr) continue;
-        if(!ocrDraft[i].company && mr.company) ocrDraft[i].company=mr.company;
-        if((!ocrDraft[i].name || ocrDraft[i].name==='未命名') && mr.name) ocrDraft[i].name=mr.name;
-      }
     }catch(metaErr){
-      console.warn('whole-image metadata OCR skipped',metaErr);
+      console.warn('enhanced metadata OCR skipped',metaErr);
     }
 
-    st.textContent=`完成：固定建立 ${expected} 筆。已辨識到 ${ocrDraft.filter(x=>x.phone).length} 筆電話。公司 / 姓名採整張中文辨識，不影響電話資料。`;
+    st.textContent=`完成：固定建立 ${expected} 筆。已辨識到 ${ocrDraft.filter(x=>x.phone).length} 筆電話。v1.4 已加強公司 / 負責人辨識；電話核心未變更。`;
     renderOCR();
   }catch(e){
     console.error(e);
