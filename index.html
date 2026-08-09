@@ -10,7 +10,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
   <title>連續撥號</title>
-  <!-- OCR accuracy version: 9.1 row-first table scanning bugfix -->
+  <!-- OCR accuracy version: 10 stable whole-image phone-first OCR -->
 
   <style>
     :root {
@@ -1154,6 +1154,7 @@ async function runOCR(){
     status.textContent='請先拍照或選擇圖片。';
     return;
   }
+
   status.textContent='正在載入辨識引擎…';
   let worker=null;
   try{
@@ -1163,9 +1164,11 @@ async function runOCR(){
         else if(m.status) status.textContent='辨識準備中…';
       }
     });
+
     const ocrSource=await prepareOCRCanvas(input.files[0]);
 
-    // 第一遍：一般中文/英文 OCR，用來抓公司、姓名與電話。
+    // 穩定版：不再使用會讓整次辨識中止的逐列裁切函式。
+    // 第一遍整張 OCR：抓姓名/公司/電話。
     await worker.setParameters({
       tessedit_pageseg_mode:'6',
       preserve_interword_spaces:'1',
@@ -1173,41 +1176,78 @@ async function runOCR(){
       tessedit_char_whitelist:''
     });
     const ret=await worker.recognize(ocrSource,{}, {text:true,blocks:true});
-    let base=parseOCRBlocks(ret.data.blocks,ret.data.text||'');
+    const fullText=(ret && ret.data && ret.data.text)||'';
 
-    // 第二階段：電話專用多輪 OCR。
-    // 對表格會裁切常見電話欄，並用一般/二值化版本分別掃描。
-    status.textContent='正在補抓電話號碼（多輪掃描）…';
-    const phoneTexts=[];
-    const variants=await makePhoneColumnVariants(ocrSource);
-    const modes=['6','11','12'];
+    let base=[];
+    try{
+      base=parseOCRBlocks((ret.data&&ret.data.blocks)||[],fullText)||[];
+    }catch(err){
+      console.warn('block parse fallback',err);
+      base=parseOCRText(fullText)||[];
+    }
 
-    for(let i=0;i<variants.length;i++){
-      await worker.setParameters({
-        tessedit_pageseg_mode:modes[i % modes.length],
-        preserve_interword_spaces:'1',
-        user_defined_dpi:'300',
-        tessedit_char_whitelist:'0123456789OIl|｜Ｏ〇○ＳsＢ-－— ()'
-      });
-      try{
-        const rr=await worker.recognize(variants[i],{}, {text:true});
-        phoneTexts.push(rr.data.text||'');
-      }catch(e){
-        console.warn('phone OCR pass failed',i,e);
+    // 電話優先補抓：即使姓名/公司抓錯，也保留合法電話。
+    status.textContent='正在補抓電話號碼…';
+    const phoneTexts=[fullText];
+
+    // 多輪電話 OCR 若其中一輪失敗，只跳過該輪，不讓整次辨識失敗。
+    try{
+      const variants=await makePhoneColumnVariants(ocrSource);
+      const modes=['6','11','12'];
+      for(let i=0;i<variants.length;i++){
+        try{
+          await worker.setParameters({
+            tessedit_pageseg_mode:modes[i % modes.length],
+            preserve_interword_spaces:'1',
+            user_defined_dpi:'300',
+            tessedit_char_whitelist:'0123456789OIl|｜Ｏ〇○ＳsＢ-－— ()'
+          });
+          const rr=await worker.recognize(variants[i],{}, {text:true});
+          if(rr && rr.data && rr.data.text) phoneTexts.push(rr.data.text);
+        }catch(passErr){
+          console.warn('phone OCR pass skipped',i,passErr);
+        }
+      }
+    }catch(variantErr){
+      console.warn('phone variants skipped',variantErr);
+    }
+
+    ocrDraft=mergeAggressivePhones(base,...phoneTexts);
+
+    if(!ocrDraft.length){
+      // 最後安全網：只靠整張文字建立電話資料。
+      const phones=[
+        ...extractAllLoosePhonesFromText(fullText),
+        ...aggressivePhoneCandidates(fullText)
+      ];
+      const seen=new Set();
+      ocrDraft=[];
+      for(const phone of phones){
+        const n=normalizePhone(phone);
+        if(!n || seen.has(n)) continue;
+        seen.add(n);
+        ocrDraft.push({
+          id:uid(),name:'未命名',phone,
+          company:'',note:'電話優先辨識',
+          source:'圖片辨識',status:'pending',
+          callCount:0,createdAt:new Date().toISOString()
+        });
       }
     }
 
-    const rowFirst = await recognizePhoneRowsByBands(ocrSource);
-    ocrDraft=mergeRowFirstResults(base, rowFirst, ret.data.text||'', ...phoneTexts);
-    status.textContent=`辨識完成，共找到 ${ocrDraft.length} 筆電話資料。此版採逐列電話辨識；不同列即使電話相同也會保留。姓名或公司錯誤不會刪除電話。`;
+    status.textContent=ocrDraft.length
+      ? `辨識完成，共找到 ${ocrDraft.length} 筆電話資料。電話優先保留；姓名、公司抓不到可再手動修改。`
+      : '沒有辨識到電話，請確認照片中的電話號碼清楚可見。';
     renderOCRResults();
+
   }catch(e){
-    console.error(e);
-    status.textContent='辨識失敗，請重新拍攝清楚一點的名單。';
+    console.error('OCR fatal',e);
+    status.textContent='辨識引擎執行失敗。請重新整理網頁後再試一次；不需要重新拍照。';
   }finally{
     if(worker){ try{ await worker.terminate(); }catch(_){} }
   }
 }
+
 function renderOCRResults(){
   const el=document.getElementById('ocrResults');
 
