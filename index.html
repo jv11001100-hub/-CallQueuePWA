@@ -1,1346 +1,232 @@
 <!doctype html>
 <html lang="zh-Hant">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#111111">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="連續撥號">
-  <link rel="manifest" href="manifest.json">
-  <link rel="apple-touch-icon" href="icon-192.png">
-  <title>連續撥號</title>
-  <!-- OCR accuracy version: 10 stable whole-image phone-first OCR -->
-
-  <style>
-    :root {
-      --bg:#f4f4f6;
-      --card:#fff;
-      --text:#111;
-      --muted:#7a7a80;
-      --line:#e3e3e8;
-      --primary:#111;
-      --danger:#b42318;
-      --success:#067647;
-    }
-    *{box-sizing:border-box}
-    body{
-      margin:0;
-      font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif;
-      background:var(--bg);
-      color:var(--text);
-      padding-bottom:88px;
-    }
-    header{
-      padding:44px 30px 26px;
-      border-bottom:1px solid var(--line);
-      background:rgba(244,244,246,.95);
-      position:sticky;top:0;z-index:10;
-      backdrop-filter:blur(16px);
-    }
-    h1{font-size:30px;margin:0 0 8px;font-weight:800}
-    .sub{font-size:16px;color:var(--muted)}
-    main{padding:28px 30px;max-width:760px;margin:auto}
-    .grid{
-      display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px
-    }
-    .stat{
-      background:var(--card);border-radius:22px;padding:24px 6px;text-align:center;
-      box-shadow:0 1px 3px rgba(0,0,0,.04)
-    }
-    .stat b{display:block;font-size:28px}
-    .stat span{display:block;font-size:15px;color:var(--muted);margin-top:8px}
-    .card{
-      background:#fff;border-radius:24px;padding:26px;margin-bottom:16px;
-      box-shadow:0 1px 3px rgba(0,0,0,.04)
-    }
-    .label{font-size:13px;color:var(--muted);margin-bottom:8px}
-    .name{font-size:34px;font-weight:800;margin-bottom:6px}
-    .phone{font-size:23px;margin-bottom:14px}
-    .meta{font-size:15px;color:var(--muted);line-height:1.6}
-    button,.button{
-      width:100%;border:0;border-radius:17px;padding:16px 14px;
-      font-size:17px;font-weight:700;background:#e9e9ed;color:#111;
-      text-decoration:none;text-align:center;display:block
-    }
-    .primary{background:#111;color:#fff}
-    .success{color:var(--success)}
-    .danger{color:var(--danger)}
-    .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-    .stack>*+*{margin-top:10px}
-    .empty{text-align:center;color:var(--muted);font-size:18px;line-height:1.6;padding:90px 20px}
-    .nav{
-      position:fixed;bottom:0;left:0;right:0;background:rgba(255,255,255,.96);
-      border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(4,1fr);
-      padding:8px 6px calc(8px + env(safe-area-inset-bottom));z-index:50;
-      backdrop-filter:blur(18px)
-    }
-    .nav button{background:transparent;color:var(--muted);font-size:13px;padding:10px 0}
-    .nav button.active{color:#111}
-    .hidden{display:none!important}
-    .list-item{
-      background:#fff;border-radius:21px;padding:20px;margin-bottom:12px;
-      display:flex;justify-content:space-between;gap:12px
-    }
-    .list-item strong{display:block;font-size:20px}
-    .list-item small{display:block;color:var(--muted);font-size:15px;margin-top:6px;line-height:1.5}
-    .badge{
-      background:#f1f1f3;color:var(--muted);font-size:13px;padding:8px 10px;
-      border-radius:999px;height:max-content;white-space:nowrap
-    }
-    input,textarea{
-      width:100%;border:1px solid var(--line);border-radius:14px;padding:13px;
-      font-size:16px;background:#fff
-    }
-    textarea{min-height:80px;resize:vertical}
-    .field{margin-bottom:10px}
-    .top-actions{display:flex;gap:10px;margin-bottom:14px}
-    .top-actions button{font-size:14px}
-    .notice{font-size:13px;color:var(--muted);line-height:1.5;margin-top:10px}
-    .ocr-box{border:1px solid var(--line);border-radius:18px;padding:16px;margin-top:12px}
-    dialog{border:0;border-radius:24px;padding:0;width:min(92vw,520px)}
-    @media(max-width:520px){
-      header{padding-left:30px;padding-right:30px}
-      main{padding-left:30px;padding-right:30px}
-      .grid{gap:14px}
-      .stat{padding:22px 4px}
-      .stat b{font-size:25px}
-    }
-  </style>
-</head>
-
-<body>
-<header>
-  <h1>連續撥號</h1>
-  <div class="sub">拍照名單 → 確認 → 逐筆撥號</div>
-</header>
-
-<main>
-  <section id="tab-call">
-    <div class="grid">
-      <div class="stat"><b id="statRemain">0</b><span>剩餘</span></div>
-      <div class="stat"><b id="statToday">0</b><span>今日撥打</span></div>
-      <div class="stat"><b id="statDone">0</b><span>完成</span></div>
-      <div class="stat"><b id="statNoAnswer">0</b><span>未接</span></div>
-    </div>
-
-    <div id="callCard" class="card hidden">
-      <div class="label">下一位</div>
-      <div id="callName" class="name"></div>
-      <div id="callPhone" class="phone"></div>
-      <div id="callMeta" class="meta"></div>
-    </div>
-
-    <div id="callActions" class="stack hidden">
-      <a id="dialButton" class="button primary" href="#">撥打</a>
-      <div class="row">
-        <button class="success" onclick="finishCurrent('completed')">已完成</button>
-        <button class="danger" onclick="finishCurrent('noAnswer')">未接</button>
-      </div>
-      <button onclick="finishCurrent('retry')">稍後再打，移到最後</button>
-    </div>
-
-    <div id="callEmpty" class="empty">
-      目前沒有待撥名單。<br>可以到「拍照匯入」或「名單」新增。
-    </div>
-  </section>
-
-  <section id="tab-list" class="hidden">
-    <div class="top-actions">
-      <button onclick="showAddForm()">＋ 手動新增</button>
-      <button onclick="resetAll()">全部重設待撥</button>
-    </div>
-    <input id="searchInput" placeholder="搜尋姓名、電話、公司、來源" oninput="renderList()">
-    <div id="listContainer" style="margin-top:12px"></div>
-  </section>
-
-  <section id="tab-import" class="hidden">
-    <div class="card">
-      <div class="label">匯入名單圖片</div>
-      <input id="imageInput" type="file" accept="image/*" style="display:none">
-      <input id="cameraInput" type="file" accept="image/*" capture="environment" style="display:none">
-      <div class="top-actions" style="margin-top:8px">
-        <button type="button" onclick="document.getElementById('cameraInput').click()">📷 拍照</button>
-        <button type="button" onclick="document.getElementById('imageInput').click()">🗂️ 選擇照片／檔案</button>
-      </div>
-      <div id="selectedFileName" class="notice">尚未選擇圖片</div>
-      <div class="notice">
-        可直接拍照，也可從「照片」或「檔案」App 選擇圖片。此版本採「逐列電話辨識」：會把名單由上到下一列一列掃描電話欄；即使相同電話出現在不同列，也會分開保留。姓名、公司抓錯或抓不到不影響電話建立。
-      </div>
-      <button class="primary" style="margin-top:12px" onclick="runOCR()">開始辨識</button>
-      <div id="ocrStatus" class="notice"></div>
-    </div>
-    <div id="ocrResults"></div>
-  </section>
-
-  <section id="tab-stats" class="hidden">
-    <div class="card">
-      <div class="label">今日統計</div>
-      <div class="grid" style="margin:0">
-        <div class="stat"><b id="sToday">0</b><span>撥打</span></div>
-        <div class="stat"><b id="sDone">0</b><span>完成</span></div>
-        <div class="stat"><b id="sNoAnswer">0</b><span>未接</span></div>
-        <div class="stat"><b id="sRetry">0</b><span>稍後再打</span></div>
-      </div>
-    </div>
-    <div id="logContainer"></div>
-  </section>
-</main>
-
-<div class="nav">
-  <button id="nav-call" class="active" onclick="switchTab('call')">撥號</button>
-  <button id="nav-list" onclick="switchTab('list')">名單</button>
-  <button id="nav-import" onclick="switchTab('import')">拍照匯入</button>
-  <button id="nav-stats" onclick="switchTab('stats')">統計</button>
-</div>
-
-<dialog id="editDialog">
-  <form method="dialog" class="card" style="margin:0">
-    <div class="label" id="dialogTitle">新增客戶</div>
-    <input type="hidden" id="editId">
-    <div class="field"><input id="editName" placeholder="姓名"></div>
-    <div class="field"><input id="editPhone" placeholder="電話" inputmode="tel"></div>
-    <div class="field"><input id="editCompany" placeholder="公司"></div>
-    <div class="field"><input id="editSource" placeholder="來源"></div>
-    <div class="field"><textarea id="editNote" placeholder="備註"></textarea></div>
-    <div class="row">
-      <button value="cancel">取消</button>
-      <button type="button" class="primary" onclick="saveEdit()">儲存</button>
-    </div>
-  </form>
-</dialog>
-
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f4f4f6">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="連續撥號">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>連續撥號</title>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<style>
+:root{--bg:#f4f4f6;--card:#fff;--text:#111;--muted:#7a7a80;--line:#e3e3e8;--ok:#07834d;--bad:#c5221f}
+*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Noto Sans TC","PingFang TC",sans-serif;padding-bottom:90px}
+header{padding:56px 28px 28px;background:var(--bg);border-bottom:1px solid var(--line)}
+h1{font-size:34px;margin:0 0 8px} .sub{color:var(--muted);font-size:18px}
+main{padding:22px}.card{background:#fff;border-radius:24px;padding:22px;margin-bottom:18px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.stat{background:#fff;border-radius:20px;padding:18px 6px;text-align:center}.stat b{display:block;font-size:26px}.stat span{color:var(--muted);font-size:14px}
+button,.btn{border:0;border-radius:18px;padding:16px 18px;font-size:18px;font-weight:700;background:#111;color:#fff;width:100%}
+.btn2{background:#ececf0;color:#111}.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+input,select{width:100%;padding:14px;border:1px solid #d8d8de;border-radius:14px;font-size:18px;background:#fff}
+label{display:block;color:var(--muted);margin:0 0 8px}.hint{color:var(--muted);font-size:15px;line-height:1.5}.danger{color:var(--bad)}
+.item{border:1px solid #e2e2e7;border-radius:18px;padding:16px;margin:12px 0}.item.needs{border:2px solid #d4473d}.item .tag{font-size:13px;color:#fff;background:#d4473d;border-radius:999px;padding:4px 8px;display:inline-block;margin-bottom:8px}
+.item input{margin-top:8px}.nav{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid #ddd;display:grid;grid-template-columns:repeat(4,1fr);padding:8px 4px calc(8px + env(safe-area-inset-bottom));z-index:5}
+.nav button{background:transparent;color:#777;padding:10px 4px;font-size:14px}.nav button.active{color:#111}
+.hidden{display:none}.nextName{font-size:34px;font-weight:800}.nextPhone{font-size:28px;margin:8px 0}.small{font-size:14px;color:var(--muted)}
+</style>
+</head>
+<body>
+<header><h1>連續撥號</h1><div class="sub">匯入名單 → 確認 → 逐筆撥號</div></header>
+
+<section id="pageDial">
+<main>
+<div class="stats">
+ <div class="stat"><b id="sRemain">0</b><span>剩餘</span></div>
+ <div class="stat"><b id="sToday">0</b><span>今日撥打</span></div>
+ <div class="stat"><b id="sDone">0</b><span>完成</span></div>
+ <div class="stat"><b id="sMiss">0</b><span>未接</span></div>
+</div>
+<div class="card" id="dialCard"><div class="hint">目前沒有待撥名單。</div></div>
+</main>
+</section>
+
+<section id="pageList" class="hidden"><main>
+<div class="card"><h2>名單</h2><div id="listWrap"></div></div>
+</main></section>
+
+<section id="pageImport" class="hidden"><main>
+<div class="card">
+<h2>拍照 / 選照片匯入</h2>
+<label>這張名單「應該有幾筆」</label>
+<input id="expectedRows" type="number" min="1" max="200" placeholder="例如 10">
+<p class="hint">這是新版的核心：你填 10，就一定建立 10 列。辨識不到的電話不會消失，而是標示「電話需確認」。</p>
+<div class="row2">
+ <label class="btn2 btn" style="text-align:center">📷 拍照<input id="cameraInput" type="file" accept="image/*" capture="environment" hidden></label>
+ <label class="btn2 btn" style="text-align:center">📁 選照片 / 檔案<input id="imageInput" type="file" accept="image/*" hidden></label>
+</div>
+<p id="selectedFile" class="hint">尚未選擇圖片</p>
+<button id="ocrBtn">開始辨識</button>
+<p id="ocrStatus" class="hint"></p>
+</div>
+<div class="card">
+<h2>辨識結果</h2>
+<div id="ocrResults"><div class="hint">尚未辨識。</div></div>
+<button id="importBtn" class="hidden">加入待撥名單</button>
+</div>
+</main></section>
+
+<section id="pageStats" class="hidden"><main>
+<div class="card"><h2>統計</h2><div id="statsDetail" class="hint"></div></div>
+</main></section>
+
+<nav class="nav">
+<button data-page="Dial" class="active">撥號</button>
+<button data-page="List">名單</button>
+<button data-page="Import">拍照匯入</button>
+<button data-page="Stats">統計</button>
+</nav>
 
 <script>
-const KEY_CONTACTS='callqueue.contacts.v2';
-const KEY_LOGS='callqueue.logs.v2';
-
-let contacts=[];
-let logs=[];
+const KEY='callqueue_clean_v1';
+let data=JSON.parse(localStorage.getItem(KEY)||'{"items":[],"today":0}');
 let ocrDraft=[];
-
-function migrateOldData(){
-  const oldContacts = JSON.parse(localStorage.getItem('callqueue.contacts.v1') || '[]');
-  const oldLogs = JSON.parse(localStorage.getItem('callqueue.logs.v1') || '[]');
-
-  const newContacts = JSON.parse(localStorage.getItem(KEY_CONTACTS) || 'null');
-  const newLogs = JSON.parse(localStorage.getItem(KEY_LOGS) || 'null');
-
-  contacts = newContacts ?? oldContacts.map(c => ({
-    ...c,
-    status: (c.status==='completed'||c.status==='noAnswer'||c.status==='retry') ? c.status : 'pending'
-  }));
-
-  logs = newLogs ?? oldLogs;
-
-  localStorage.setItem(KEY_CONTACTS, JSON.stringify(contacts));
-  localStorage.setItem(KEY_LOGS, JSON.stringify(logs));
+const save=()=>localStorage.setItem(KEY,JSON.stringify(data));
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+const phoneOK=p=>/^09\d{8}$/.test(p)||/^0[2-8]\d{7,8}$/.test(p);
+function normalizePhone(s=''){
+  let d=String(s).replace(/[OＯ〇○]/g,'0').replace(/[Il|｜]/g,'1').replace(/[Ｓs]/g,'5').replace(/[Ｂ]/g,'8').replace(/\D/g,'');
+  if(d.startsWith('886')) d='0'+d.slice(3);
+  return d;
 }
-migrateOldData();
-
-function uid(){
-  return crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)+Date.now();
-}
-function normalizePhone(v=''){
-  return v.replace(/[^\d+]/g,'');
-}
-function save(){
-  localStorage.setItem(KEY_CONTACTS,JSON.stringify(contacts));
-  localStorage.setItem(KEY_LOGS,JSON.stringify(logs));
-  renderAll();
-}
-function pendingContacts(){
-  return contacts.filter(c => c.status==='pending' || c.status==='retry');
-}
-function nextContact(){
-  return pendingContacts()[0] || null;
-}
-function todayISO(){
-  const d=new Date();
-  const y=d.getFullYear();
-  const m=String(d.getMonth()+1).padStart(2,'0');
-  const day=String(d.getDate()).padStart(2,'0');
-  return `${y}-${m}-${day}`;
-}
-function todayLogs(){
-  const t=todayISO();
-  return logs.filter(l => l.day===t);
-}
-function switchTab(name){
-  ['call','list','import','stats'].forEach(t=>{
-    document.getElementById('tab-'+t).classList.toggle('hidden',t!==name);
-    document.getElementById('nav-'+t).classList.toggle('active',t===name);
-  });
-  renderAll();
-}
-
-function renderCall(){
-  const c=nextContact();
-  const empty=document.getElementById('callEmpty');
-  const card=document.getElementById('callCard');
-  const actions=document.getElementById('callActions');
-
-  if(!c){
-    empty.classList.remove('hidden');
-    card.classList.add('hidden');
-    actions.classList.add('hidden');
-  }else{
-    empty.classList.add('hidden');
-    card.classList.remove('hidden');
-    actions.classList.remove('hidden');
-
-    document.getElementById('callName').textContent=c.name||'未命名';
-    document.getElementById('callPhone').textContent=c.phone||'';
-
-    const meta=[];
-    if(c.company) meta.push('公司：'+c.company);
-    if(c.source) meta.push('來源：'+c.source);
-    if(c.note) meta.push('備註：'+c.note);
-    meta.push('已撥 '+(c.callCount||0)+' 次');
-    document.getElementById('callMeta').innerHTML=meta.join('<br>');
-
-    const dial=document.getElementById('dialButton');
-    dial.href='tel:'+encodeURIComponent(normalizePhone(c.phone));
-    dial.textContent='撥打 '+(c.name||'');
-    dial.onclick=()=>{
-      c.callCount=(c.callCount||0)+1;
-      c.lastCalledAt=new Date().toISOString();
-      localStorage.setItem(KEY_CONTACTS,JSON.stringify(contacts));
-    };
-  }
-
-  const t=todayLogs();
-  document.getElementById('statRemain').textContent=pendingContacts().length;
-  document.getElementById('statToday').textContent=t.length;
-  document.getElementById('statDone').textContent=t.filter(x=>x.result==='completed').length;
-  document.getElementById('statNoAnswer').textContent=t.filter(x=>x.result==='noAnswer').length;
-}
-
-function finishCurrent(result){
-  const c=nextContact();
-  if(!c) return;
-
-  c.status=result;
-  logs.push({
-    id:uid(),
-    contactId:c.id,
-    name:c.name,
-    phone:c.phone,
-    result,
-    time:new Date().toISOString(),
-    day:todayISO()
-  });
-
-  if(result==='noAnswer' || result==='retry'){
-    contacts=contacts.filter(x=>x.id!==c.id);
-    contacts.push(c);
-  }
-  save();
-}
-
-function resultLabel(v){
-  return ({pending:'待撥',completed:'已完成',noAnswer:'未接',retry:'稍後再打'})[v]||v;
-}
-
-function renderList(){
-  const el=document.getElementById('listContainer');
-  if(!el) return;
-
-  const q=(document.getElementById('searchInput')?.value||'').toLowerCase();
-  const data=contacts.filter(c=>
-    [c.name,c.phone,c.company,c.source,c.note].join(' ').toLowerCase().includes(q)
-  );
-
-  if(!data.length){
-    el.innerHTML='<div class="empty">目前沒有資料</div>';
-    return;
-  }
-
-  el.innerHTML=data.map(c=>`
-    <div class="list-item" onclick="editContact('${c.id}')">
-      <div>
-        <strong>${escapeHTML(c.name||'未命名')}</strong>
-        <small>${escapeHTML(c.phone||'')}</small>
-        ${c.company?`<small>${escapeHTML(c.company)}</small>`:''}
-        ${c.note?`<small>${escapeHTML(c.note)}</small>`:''}
-      </div>
-      <span class="badge">${resultLabel(c.status)}</span>
-    </div>
-  `).join('');
-}
-
-function showAddForm(){
-  document.getElementById('dialogTitle').textContent='新增客戶';
-  ['editId','editName','editPhone','editCompany','editSource','editNote'].forEach(id=>{
-    document.getElementById(id).value='';
-  });
-  document.getElementById('editDialog').showModal();
-}
-
-function editContact(id){
-  const c=contacts.find(x=>x.id===id);
-  if(!c) return;
-  document.getElementById('dialogTitle').textContent='編輯客戶';
-  document.getElementById('editId').value=c.id;
-  document.getElementById('editName').value=c.name||'';
-  document.getElementById('editPhone').value=c.phone||'';
-  document.getElementById('editCompany').value=c.company||'';
-  document.getElementById('editSource').value=c.source||'';
-  document.getElementById('editNote').value=c.note||'';
-  document.getElementById('editDialog').showModal();
-}
-
-function saveEdit(){
-  const id=document.getElementById('editId').value;
-  const payload={
-    name:document.getElementById('editName').value.trim(),
-    phone:document.getElementById('editPhone').value.trim(),
-    company:document.getElementById('editCompany').value.trim(),
-    source:document.getElementById('editSource').value.trim(),
-    note:document.getElementById('editNote').value.trim()
-  };
-
-  if(id){
-    const c=contacts.find(x=>x.id===id);
-    Object.assign(c,payload);
-    if(!c.status) c.status='pending';
-  }else{
-    contacts.push({
-      id:uid(),
-      ...payload,
-      status:'pending',
-      callCount:0,
-      createdAt:new Date().toISOString()
-    });
-  }
-  document.getElementById('editDialog').close();
-  save();
-}
-
-function resetAll(){
-  contacts.forEach(c=>c.status='pending');
-  save();
-}
-
-/* ---------- OCR accuracy v3 ---------- */
-
-function compactChinese(s=''){
-  return String(s)
-    .replace(/[|｜]/g,' ')
-    .replace(/[~～]+/g,' ')
-    .replace(/[“”"'`]+/g,'')
-    .replace(/\s+/g,' ')
-    .trim();
-}
-
-function joinSpacedChineseName(s=''){
-  // 把「楊 俊 更」「陳 進 德」這類 OCR 結果合併成姓名
-  const t = compactChinese(s);
-  const parts = t.split(/\s+/);
-  if(parts.length >= 2 && parts.length <= 4 && parts.every(p => /^[\u4e00-\u9fff]{1,2}$/.test(p))){
-    const joined = parts.join('');
-    if(joined.length >= 2 && joined.length <= 4) return joined;
-  }
-  return t;
-}
-
-function looksLikeRegion(s=''){
-  const x=compactChinese(s).replace(/\s+/g,'');
-  const regions=[
-    '臺中市','台中市','臺北市','台北市','新北市','桃園市','臺南市','台南市','高雄市',
-    '基隆市','新竹市','嘉義市','新竹縣','苗栗縣','彰化縣','南投縣','雲林縣',
-    '嘉義縣','屏東縣','宜蘭縣','花蓮縣','臺東縣','台東縣','澎湖縣','金門縣','連江縣'
-  ];
-  return regions.includes(x);
-}
-
-function looksLikeCode(s=''){
-  const x=compactChinese(s).replace(/\s+/g,'');
-  return /^[A-Z]{2,8}$/.test(x) || /^[A-Z0-9\-]{2,12}$/.test(x);
-}
-
-function looksLikeCompany(s=''){
-  const words=[
-    '公司','企業','實業','股份','有限公司','商行','工作室','科技','工程',
-    '國際','貿易','設計','開發','行銷','室內裝潢','工業','興業','營造',
-    '建設','顧問','材料','機械','電機','家具','傢俱'
-  ];
-  return words.some(w=>s.includes(w));
-}
-
-function looksLikeTitle(s=''){
-  return /(負責人|監察人|董事長|董事|經理|聯絡人|代表人|負責人員|店長|主任)/.test(s);
-}
-
-function isLikelyChineseName(s=''){
-  const x=joinSpacedChineseName(s).replace(/[^\u4e00-\u9fff]/g,'');
-  if(x.length < 2 || x.length > 4) return false;
-  if(looksLikeRegion(x) || looksLikeCompany(x) || looksLikeTitle(x)) return false;
-  const blacklist=['臺中','台中','臺北','台北','新北','桃園','臺南','台南','高雄','公司','企業','股份','有限','工業','實業','設計','貿易'];
-  return !blacklist.includes(x);
-}
-
-function extractPersonAfterTitle(s=''){
-  const t=compactChinese(s);
-
-  // 例如：監察人 - 楊俊更、負責人~~陳進德、董事長 林長生
-  const p = t.match(/(?:負責人|監察人|董事長|董事|經理|聯絡人|代表人|負責人員|店長|主任)\s*[-:：~～－—]*\s*([\u4e00-\u9fff](?:\s*[\u4e00-\u9fff]){1,3})/);
-  if(p){
-    const name = p[1].replace(/\s+/g,'');
-    if(isLikelyChineseName(name)) return name;
-  }
-
-  // 某些 OCR 會把職稱跟名字黏在一起
-  const p2 = t.match(/(?:負責人|監察人|董事長|董事|經理|聯絡人|代表人)([\u4e00-\u9fff]{2,4})/);
-  if(p2 && isLikelyChineseName(p2[1])) return p2[1];
-
-  return '';
-}
-
-function stripPersonTailFromCompany(s='', name=''){
-  let t=compactChinese(s);
-  if(name){
-    const esc=name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
-    t=t.replace(new RegExp(`(?:負責人|監察人|董事長|董事|經理|聯絡人|代表人)?\\s*[-:：~～－—]*\\s*${esc}\\s*$`),'').trim();
-  }
-  // 清掉只剩職稱的尾巴
-  t=t.replace(/(?:負責人|監察人|董事長|董事|經理|聯絡人|代表人)\s*[-:：~～－—]*\s*$/,'').trim();
-  return t;
-}
-
-function normalizeTWPhone(raw=''){
-  let x=String(raw).replace(/[^\d+]/g,'');
-  if(x.startsWith('+886')){
-    x='0'+x.slice(4);
-  }else if(x.startsWith('886')){
-    x='0'+x.slice(3);
-  }
-  return x;
-}
-
-function displayTWPhone(raw=''){
-  const x=normalizeTWPhone(raw);
-  if(/^09\d{8}$/.test(x)) return x;
-  if(/^0\d{8,9}$/.test(x)) return x;
-  return x;
-}
-
-function parseOCRText(text){
-  const rawLines=text.split(/\n+/).map(compactChinese).filter(Boolean);
-
-  // 修正常見 OCR：把中文人名中的空白合併，但保留其他行
-  const lines=rawLines.map(line=>{
-    if(!/\d/.test(line) && !looksLikeCompany(line) && !looksLikeRegion(line) && !looksLikeCode(line)){
-      const j=joinSpacedChineseName(line);
-      if(isLikelyChineseName(j)) return j;
-    }
-    return line;
-  });
-
-  // 台灣手機與市話，允許空格、破折號
-  const phoneRegex=/(?:\+?886[\s\-]?)?(?:0?9\d{2}[\s\-]?\d{3}[\s\-]?\d{3}|0\d{1,2}[\s\-]?\d{3,4}[\s\-]?\d{3,4})/;
-
+function extractPhones(text=''){
   const out=[];
-
-  for(let i=0;i<lines.length;i++){
-    const line=lines[i];
-    const m=line.match(phoneRegex);
-    if(!m) continue;
-
-    const phone=displayTWPhone(m[0]);
-    if(phone.length < 9 || phone.length > 10) continue;
-
-    const before=compactChinese(line.slice(0,m.index));
-    const after=compactChinese(line.slice(m.index+m[0].length));
-
-    // 往前後多看幾行，因為實際名單常是「地區/代碼 → 電話 → 公司+職稱+姓名」
-    const nearby=[];
-    for(let d=-2; d<=3; d++){
-      const idx=i+d;
-      if(idx>=0 && idx<lines.length) nearby.push(lines[idx]);
-    }
-
-    let name='';
-    let company='';
-    let note='';
-
-    // 1) 最優先：從職稱後面抓姓名
-    for(const cand of nearby){
-      const p=extractPersonAfterTitle(cand);
-      if(p){ name=p; break; }
-    }
-
-    // 2) 公司行優先
-    for(const cand of nearby){
-      if(looksLikeCompany(cand)){
-        company=cand.replace(m[0],'').trim();
-        if(!name){
-          const p=extractPersonAfterTitle(cand);
-          if(p) name=p;
-        }
-        break;
-      }
-    }
-
-    // 3) 若電話同一行左右就是人名，才使用
-    if(!name){
-      for(const c0 of [before,after]){
-        const c=joinSpacedChineseName(c0);
-        if(isLikelyChineseName(c)){
-          name=c;
-          break;
-        }
-      }
-    }
-
-    // 4) 再從附近純中文短行找人名，但排除地區、公司、職稱
-    if(!name){
-      for(const c0 of nearby){
-        const c=joinSpacedChineseName(c0);
-        if(looksLikeRegion(c) || looksLikeCode(c) || looksLikeCompany(c) || looksLikeTitle(c)) continue;
-        if(isLikelyChineseName(c)){
-          name=c;
-          break;
-        }
-      }
-    }
-
-    if(!name) name='未命名';
-
-    if(company){
-      company=stripPersonTailFromCompany(company,name);
-    }
-
-    // 5) 備註只保留不是地區/代碼/電話/姓名/公司本體的資訊
-    const noteParts=[];
-    for(const c0 of nearby){
-      const c=compactChinese(c0);
-      if(!c) continue;
-      if(c.includes(m[0]) || normalizeTWPhone(c)===phone) continue;
-      if(looksLikeRegion(c) || looksLikeCode(c)) continue;
-      if(company && c===company) continue;
-      if(c===name) continue;
-      if(looksLikeCompany(c)) continue;
-      if(extractPersonAfterTitle(c)===name) continue;
-      if(noteParts.includes(c)) continue;
-      noteParts.push(c);
-    }
-    note=noteParts.join(' ').trim();
-
-    out.push({
-      id:uid(),
-      name,
-      phone,
-      company,
-      note,
-      source:'圖片辨識',
-      status:'pending',
-      callCount:0,
-      createdAt:new Date().toISOString()
-    });
-  }
-
-  // 同電話只留一筆；若後面的辨識姓名較完整，用後面的補前面
-  const byPhone=new Map();
-  for(const c of out){
-    const n=normalizePhone(c.phone);
-    if(!n) continue;
-    if(!byPhone.has(n)){
-      byPhone.set(n,c);
-    }else{
-      const old=byPhone.get(n);
-      if(old.name==='未命名' && c.name!=='未命名') old.name=c.name;
-      if(!old.company && c.company) old.company=c.company;
-      if(!old.note && c.note) old.note=c.note;
-    }
-  }
-  return [...byPhone.values()];
-}
-
-
-
-function cleanOCRToken(s=''){
-  return compactChinese(s)
-    .replace(/[，,;；]+/g,' ')
-    .replace(/\s+/g,' ')
-    .trim();
-}
-
-function flattenOCRLines(blocks){
-  const rows=[];
-  for(const b of (blocks||[])){
-    for(const p of (b.paragraphs||[])){
-      for(const l of (p.lines||[])){
-        const words=(l.words||[]).map(w=>({
-          text:cleanOCRToken(w.text||''),
-          x0:w.bbox?.x0??0, y0:w.bbox?.y0??0,
-          x1:w.bbox?.x1??0, y1:w.bbox?.y1??0,
-          conf:w.confidence??0
-        })).filter(w=>w.text);
-        if(!words.length) continue;
-        const bbox=l.bbox||{x0:Math.min(...words.map(w=>w.x0)),y0:Math.min(...words.map(w=>w.y0)),x1:Math.max(...words.map(w=>w.x1)),y1:Math.max(...words.map(w=>w.y1))};
-        rows.push({words,bbox,text:words.map(w=>w.text).join(' ')});
-      }
-    }
-  }
-  return rows;
-}
-
-function phoneFromLooseText(s=''){
-  // OCR 常把 0/O、1/I/l 混淆；只在疑似電話片段內修正
-  const chunks=String(s).match(/[0-9OIl|\-－—\s]{8,20}/g)||[];
-  for(const raw of chunks){
-    let d=raw.replace(/[O]/g,'0').replace(/[Il|]/g,'1').replace(/\D/g,'');
-    if(d.startsWith('886')) d='0'+d.slice(3);
-    if(/^09\d{8}$/.test(d) || /^0[2-8]\d{7,8}$/.test(d)) return d;
-  }
-  return '';
-}
-
-function normalizeRegionLoose(s=''){
-  const x=compactChinese(s).replace(/\s+/g,'').replace(/^台/,'臺');
-  const regions=['臺中市','臺北市','新北市','桃園市','臺南市','高雄市','基隆市','新竹市','嘉義市','新竹縣','苗栗縣','彰化縣','南投縣','雲林縣','嘉義縣','屏東縣','宜蘭縣','花蓮縣','臺東縣','澎湖縣','金門縣','連江縣'];
-  return regions.find(r=>x.includes(r))||'';
-}
-
-function parseTableRowText(rowText, phone){
-  let t=compactChinese(rowText);
-  // 將電話附近的 OCR 字元先移除，保留左右欄位
-  const variants=[phone, phone.replace(/(\d{4})(\d{3})(\d{3})/,'$1 $2 $3')];
-  let pos=-1, plen=0;
-  for(const v of variants){ const k=t.indexOf(v); if(k>=0){pos=k; plen=v.length; break;} }
-  if(pos<0){
-    const m=t.match(/[0-9OIl|\-－—\s]{8,20}/);
-    if(m){pos=m.index; plen=m[0].length;}
-  }
-  const left=compactChinese(pos>=0?t.slice(0,pos):t);
-  const right=compactChinese(pos>=0?t.slice(pos+plen):'');
-  let region=normalizeRegionLoose(right)||normalizeRegionLoose(t);
-  let name='', company='';
-  const titleRe=/(負責人|監察人|董事長|董事|經理|聯絡人|代表人|負責人員|店長|主任)/;
-  const tm=left.match(titleRe);
-  if(tm){
-    company=compactChinese(left.slice(0,tm.index));
-    name=extractPersonAfterTitle(left.slice(tm.index));
-  }else{
-    // 無職稱時，公司通常在電話左側最前面；避免把縣市當姓名
-    company=looksLikeCompany(left)?left:'';
-  }
-  if(company) company=stripPersonTailFromCompany(company,name);
-  return {name,company,region};
-}
-
-
-function extractAllLoosePhonesFromText(text=''){
-  const found=[];
-  const seen=new Set();
-
-  // 逐行處理，避免把上下兩筆電話黏在一起。
-  const lines=String(text).split(/\n+/);
-  for(const line0 of lines){
-    const line=String(line0);
-    // 先找「看起來像電話」的片段，容許 OCR 把 0/1 看成 O/I/l/|
-    const chunks=line.match(/[0-9OIl|\s\-－—()（）]{8,24}/g)||[];
-    for(const raw of chunks){
-      let d=raw
-        .replace(/[O]/g,'0')
-        .replace(/[Il|]/g,'1')
-        .replace(/\D/g,'');
-
-      // +886 / 886 轉回台灣 0 開頭
-      if(d.startsWith('886')) d='0'+d.slice(3);
-
-      // 一個 chunk 偶爾會包含前後雜碼，滑動找合法 9/10 碼電話。
-      const candidates=[];
-      if(/^09\d{8}$/.test(d)) candidates.push(d);
-      if(/^0[2-8]\d{7,8}$/.test(d)) candidates.push(d);
-
-      for(let len of [10,9]){
-        if(d.length>len){
-          for(let i=0;i<=d.length-len;i++){
-            const s=d.slice(i,i+len);
-            if(/^09\d{8}$/.test(s) || /^0[2-8]\d{7,8}$/.test(s)) candidates.push(s);
-          }
-        }
-      }
-
-      for(const p of candidates){
-        if(!seen.has(p)){
-          seen.add(p);
-          found.push(p);
-        }
-      }
-    }
-  }
-  return found;
-}
-
-function mergePhoneSafetyNet(existing, ...texts){
-  const byPhone=new Map();
-
-  for(const c of (existing||[])){
-    const n=normalizePhone(c.phone);
-    if(!n) continue;
-    if(!byPhone.has(n)) byPhone.set(n,c);
-  }
-
-  // 任何合法電話，只要 OCR 有抓到，就至少建立一筆。
-  for(const txt of texts){
-    for(const phone of extractAllLoosePhonesFromText(txt||'')){
-      const n=normalizePhone(phone);
-      if(!n || byPhone.has(n)) continue;
-      byPhone.set(n,{
-        id:uid(),
-        name:'未命名',
-        phone,
-        company:'',
-        note:'號碼優先辨識',
-        source:'圖片辨識',
-        status:'pending',
-        callCount:0,
-        createdAt:new Date().toISOString()
-      });
-    }
-  }
-  return [...byPhone.values()];
-}
-
-
-function aggressivePhoneCandidates(text=''){
-  const out=[], seen=new Set();
-  const normalized=String(text)
-    .replace(/[Ｏ〇○]/g,'0')
-    .replace(/[Il|｜]/g,'1')
-    .replace(/[Ｓs]/g,'5')
-    .replace(/[Ｂ]/g,'8');
-
-  // 逐行優先，避免相鄰列黏號。
-  const lines=normalized.split(/\n+/);
-  for(const line of lines){
-    const groups=line.match(/[0-9OIl|｜Ｏ〇○ＳsＢ\-\s()（）]{8,30}/g)||[];
-    for(const g of groups){
-      let d=g
-        .replace(/[OＯ〇○]/g,'0')
-        .replace(/[Il|｜]/g,'1')
-        .replace(/[Ｓs]/g,'5')
-        .replace(/[Ｂ]/g,'8')
-        .replace(/\D/g,'');
-      if(d.startsWith('886')) d='0'+d.slice(3);
-
-      // 手機固定 10 碼；市話接受 9~10 碼。
-      const lens=[10,9];
-      for(const len of lens){
-        if(d.length < len) continue;
+  for(const line of String(text).split(/\n+/)){
+    const raw=line.replace(/[OＯ〇○]/g,'0').replace(/[Il|｜]/g,'1').replace(/[Ｓs]/g,'5').replace(/[Ｂ]/g,'8');
+    const chunks=raw.match(/[0-9\-\s()（）]{8,28}/g)||[];
+    for(const c of chunks){
+      const d=c.replace(/\D/g,'');
+      for(const len of [10,9]){
         for(let i=0;i<=d.length-len;i++){
-          const s=d.slice(i,i+len);
-          if(/^09\d{8}$/.test(s) || /^0[2-8]\d{7,8}$/.test(s)){
-            if(!seen.has(s)){ seen.add(s); out.push(s); }
-          }
+          const p=d.slice(i,i+len);
+          if(phoneOK(p)) out.push(p);
         }
       }
     }
   }
   return out;
 }
-
-
-async function recognizePhoneRowsByBands(img){
-  // v9：把整張名單依水平表格列切成多個窄帶，各列獨立 OCR。
-  // 目的：相同電話出現在不同列時，也能保留成不同筆。
-  const canvas=document.createElement('canvas');
-  const ctx=canvas.getContext('2d',{willReadFrequently:true});
-  const w=img.naturalWidth||img.width, h=img.naturalHeight||img.height;
-  canvas.width=w; canvas.height=h;
-  ctx.drawImage(img,0,0,w,h);
-
-  // 先利用水平線/文字密度估計列界線；若估不到，就用多組等分切割做容錯。
-  const gray=ctx.getImageData(0,0,w,h).data;
-  const density=[];
-  for(let y=0;y<h;y++){
-    let dark=0;
-    for(let x=0;x<w;x+=Math.max(1,Math.floor(w/500))){
-      const i=(y*w+x)*4;
-      const lum=(gray[i]+gray[i+1]+gray[i+2])/3;
-      if(lum<205) dark++;
-    }
-    density.push(dark);
-  }
-
-  // 找出有文字的連續水平區段，再合併成候選列。
-  const threshold=Math.max(3, Math.floor(w/900));
-  const bands=[];
-  let start=-1;
-  for(let y=0;y<h;y++){
-    if(density[y]>=threshold && start<0) start=y;
-    if((density[y]<threshold || y===h-1) && start>=0){
-      const end=y;
-      if(end-start>=5) bands.push([Math.max(0,start-8),Math.min(h,end+8)]);
-      start=-1;
-    }
-  }
-
-  // 將相距很近的文字小區塊合併為同一表格列。
-  const merged=[];
-  for(const b of bands){
-    if(!merged.length || b[0]-merged[merged.length-1][1] > Math.max(8,h*0.008)){
-      merged.push([...b]);
-    }else{
-      merged[merged.length-1][1]=b[1];
-    }
-  }
-
-  // 過濾太高/太矮區塊。表格通常每列高度相近。
-  let candidates=merged.filter(([a,b])=>{
-    const bh=b-a;
-    return bh>=Math.max(12,h*0.015) && bh<=h*0.18;
-  });
-
-  // 若自動切列不足，增加 8~14 等分候選；最後會依 y 位置去重，但不依電話去重。
-  const fallback=[];
-  for(const count of [8,9,10,11,12,13,14]){
-    const bh=h/count;
-    for(let r=0;r<count;r++){
-      fallback.push([Math.max(0,Math.floor(r*bh-4)),Math.min(h,Math.ceil((r+1)*bh+4))]);
-    }
-  }
-  candidates=[...candidates,...fallback];
-
-  const hits=[];
-  for(const [y1,y2] of candidates){
-    const bh=y2-y1;
-    if(bh<10) continue;
-    const c=document.createElement('canvas');
-    // 電話通常位於表格右半部，但保留較寬範圍避免欄位偏移。
-    const x1=Math.floor(w*0.48), x2=Math.floor(w*0.91);
-    c.width=Math.max(1,(x2-x1)*2);
-    c.height=Math.max(1,bh*2);
-    const cctx=c.getContext('2d');
-    cctx.imageSmoothingEnabled=true;
-    cctx.drawImage(canvas,x1,y1,x2-x1,bh,0,0,c.width,c.height);
-
-    try{
-      const res=await Tesseract.recognize(c,'eng',{
-        tessedit_char_whitelist:'0123456789- ()',
-        preserve_interword_spaces:'1'
-      });
-      const phones=[
-        ...extractAllLoosePhonesFromText(res.data.text||''),
-        ...aggressivePhoneCandidates(res.data.text||'')
-      ];
-      for(const p of phones){
-        const n=normalizePhone(p);
-        if(n) hits.push({phone:n,y:(y1+y2)/2,span:bh});
-      }
-    }catch(e){}
-  }
-
-  // 同一實體列會被多種切法命中很多次：以 y 聚類。
-  // 關鍵：不同 y 的相同電話絕不合併。
-  hits.sort((a,b)=>a.y-b.y);
-  const clusters=[];
-  const yTol=Math.max(12,h*0.035);
-  for(const hit of hits){
-    let best=null, bestDist=Infinity;
-    for(const cl of clusters){
-      const d=Math.abs(cl.y-hit.y);
-      if(d<yTol && d<bestDist){ best=cl; bestDist=d; }
-    }
-    if(best){
-      best.items.push(hit);
-      best.y=best.items.reduce((s,v)=>s+v.y,0)/best.items.length;
-    }else{
-      clusters.push({y:hit.y,items:[hit]});
-    }
-  }
-
+function buildRowsFromPhoneSequence(phones, expected){
+  // 不去重：同一電話出現兩次，就保留兩筆。
   const rows=[];
-  for(const cl of clusters){
-    const counts=new Map();
-    for(const it of cl.items) counts.set(it.phone,(counts.get(it.phone)||0)+1);
-    const ranked=[...counts.entries()].sort((a,b)=>b[1]-a[1]);
-    if(!ranked.length) continue;
-    const phone=ranked[0][0];
+  for(let i=0;i<expected;i++){
     rows.push({
-      id:uid(), name:'未命名', phone,
-      company:'', note:'逐列電話辨識',
-      source:'圖片辨識', status:'pending',
-      callCount:0, createdAt:new Date().toISOString(),
-      _rowY:cl.y
+      id:uid(),
+      name:'未命名',
+      company:'',
+      phone:phones[i]||'',
+      status:'pending',
+      callCount:0,
+      needsCheck:!phones[i]
     });
   }
-  rows.sort((a,b)=>(a._rowY||0)-(b._rowY||0));
   return rows;
 }
-
-function mergeRowFirstResults(baseRows, rowRows, ...texts){
-  // 若逐列辨識比一般 OCR 找到更多列，優先使用逐列結果；
-  // 否則保留一般 OCR。兩者都不依電話號碼去重。
-  let rows=(rowRows&&rowRows.length>baseRows.length) ? rowRows : [...baseRows];
-
-  const seenPhones=new Set(rows.map(r=>normalizePhone(r.phone)).filter(Boolean));
-  // 補抓僅補完全沒出現過的號碼，不影響逐列重複。
-  for(const txt of texts){
-    const phones=[...extractAllLoosePhonesFromText(txt||''),...aggressivePhoneCandidates(txt||'')];
-    for(const p of phones){
-      const n=normalizePhone(p);
-      if(!n || seenPhones.has(n)) continue;
-      seenPhones.add(n);
-      rows.push({
-        id:uid(), name:'未命名', phone:n, company:'', note:'電話補抓',
-        source:'圖片辨識', status:'pending', callCount:0,
-        createdAt:new Date().toISOString()
-      });
-    }
-  }
-  return rows;
-}
-
-function mergeAggressivePhones(existing, ...texts){
-  // v8：原本從表格列辨識出來的資料全部保留，不以電話去重。
-  const rows=[...(existing||[])].filter(c=>normalizePhone(c.phone));
-
-  // 安全網補抓只負責「補漏掉的號碼」；
-  // 若號碼已經存在於任何列，就不額外再新增一筆未命名，避免製造假重複。
-  const seenPhones=new Set(rows.map(c=>normalizePhone(c.phone)).filter(Boolean));
-
-  for(const txt of texts){
-    const candidates=[
-      ...extractAllLoosePhonesFromText(txt||''),
-      ...aggressivePhoneCandidates(txt||'')
-    ];
-    for(const phone of candidates){
-      const n=normalizePhone(phone);
-      if(!n || seenPhones.has(n)) continue;
-      seenPhones.add(n);
-      rows.push({
-        id:uid(), name:'未命名', phone,
-        company:'', note:'電話補抓',
-        source:'圖片辨識', status:'pending',
-        callCount:0, createdAt:new Date().toISOString()
-      });
-    }
-  }
-  return rows;
-}
-
-async function makePhoneColumnVariants(source){
-  // 對表格型圖片，額外掃描中間偏右區域（常見電話欄位置）。
-  // 同時建立一般、高對比、二值化三種版本。
+async function ocrOne(source, lang='eng', psm='6'){
+  const worker=await Tesseract.createWorker(lang,1);
   try{
-    const base = source instanceof HTMLCanvasElement ? source : await prepareOCRCanvas(source);
-    const variants=[];
-    const crops=[
-      [0.48,0,0.40,1], // 寬鬆電話/姓名區
-      [0.58,0,0.27,1], // 更聚焦電話欄
-      [0,0,1,1]        // 全圖備援
-    ];
-    for(const [rx,ry,rw,rh] of crops){
-      const sx=Math.round(base.width*rx), sy=Math.round(base.height*ry);
-      const sw=Math.round(base.width*rw), sh=Math.round(base.height*rh);
-      const c=document.createElement('canvas');
-      c.width=Math.max(1,sw); c.height=Math.max(1,sh);
-      const ctx=c.getContext('2d',{willReadFrequently:true});
-      ctx.drawImage(base,sx,sy,sw,sh,0,0,c.width,c.height);
-      variants.push(c);
-
-      const b=document.createElement('canvas');
-      b.width=c.width; b.height=c.height;
-      const bx=b.getContext('2d',{willReadFrequently:true});
-      bx.drawImage(c,0,0);
-      const im=bx.getImageData(0,0,b.width,b.height);
-      for(let i=0;i<im.data.length;i+=4){
-        const v=im.data[i] < 185 ? 0 : 255;
-        im.data[i]=im.data[i+1]=im.data[i+2]=v;
-      }
-      bx.putImageData(im,0,0);
-      variants.push(b);
-    }
-    return variants;
-  }catch(e){
-    console.warn('phone column variants fallback',e);
-    return [source];
-  }
+    await worker.setParameters({tessedit_pageseg_mode:psm,preserve_interword_spaces:'1',user_defined_dpi:'300'});
+    const r=await worker.recognize(source);
+    return r.data.text||'';
+  }finally{try{await worker.terminate()}catch(e){}}
 }
-
-async function prepareOCRCanvas(file){
-  // 放大 + 灰階 + 提高對比，讓細小電話數字更容易被辨識。
-  try{
-    const bitmap=await createImageBitmap(file);
-    const maxW=2600;
-    const scale=Math.max(1, Math.min(2.5, maxW/bitmap.width));
-    const w=Math.round(bitmap.width*scale);
-    const h=Math.round(bitmap.height*scale);
-    const canvas=document.createElement('canvas');
-    canvas.width=w; canvas.height=h;
-    const ctx=canvas.getContext('2d',{willReadFrequently:true});
-    ctx.drawImage(bitmap,0,0,w,h);
-    const img=ctx.getImageData(0,0,w,h);
-    const d=img.data;
-    for(let i=0;i<d.length;i+=4){
-      const g=Math.round(d[i]*0.299+d[i+1]*0.587+d[i+2]*0.114);
-      // 簡單對比拉高
-      const v=Math.max(0,Math.min(255,Math.round((g-128)*1.35+128)));
-      d[i]=d[i+1]=d[i+2]=v;
-    }
-    ctx.putImageData(img,0,0);
-    try{ bitmap.close(); }catch(_){}
-    return canvas;
-  }catch(e){
-    console.warn('OCR preprocessing fallback',e);
-    return file;
+async function prepareCanvas(file){
+  const bmp=await createImageBitmap(file);
+  const scale=Math.min(2.5,2600/bmp.width);
+  const c=document.createElement('canvas');
+  c.width=Math.max(1,Math.round(bmp.width*scale)); c.height=Math.max(1,Math.round(bmp.height*scale));
+  const x=c.getContext('2d',{willReadFrequently:true}); x.drawImage(bmp,0,0,c.width,c.height);
+  const im=x.getImageData(0,0,c.width,c.height);
+  for(let i=0;i<im.data.length;i+=4){
+    const g=.299*im.data[i]+.587*im.data[i+1]+.114*im.data[i+2];
+    const v=Math.max(0,Math.min(255,(g-128)*1.45+128));
+    im.data[i]=im.data[i+1]=im.data[i+2]=v;
   }
+  x.putImageData(im,0,0); return c;
 }
-
-function parseOCRBlocks(blocks, fallbackText=''){
-  const lines=flattenOCRLines(blocks);
-  const out=[];
-  for(let i=0;i<lines.length;i++){
-    const row=lines[i];
-    const phone=phoneFromLooseText(row.text);
-    if(!phone) continue;
-
-    let parsed=parseTableRowText(row.text,phone);
-    // 若 Tesseract 把同一實體列切成 2~3 個 OCR line，用 y 座標找最近鄰補欄位
-    const cy=(row.bbox.y0+row.bbox.y1)/2;
-    const h=Math.max(8,row.bbox.y1-row.bbox.y0);
-    const near=lines.filter((r,j)=>j!==i && Math.abs(((r.bbox.y0+r.bbox.y1)/2)-cy)<=h*0.85 && !phoneFromLooseText(r.text));
-    const merged=[row.text,...near.map(r=>r.text)].join(' ');
-    const p2=parseTableRowText(merged,phone);
-    if(!parsed.name) parsed.name=p2.name;
-    if(!parsed.company) parsed.company=p2.company;
-    if(!parsed.region) parsed.region=p2.region;
-
-    // 最後才使用附近文字，但只限同一列，不再跨上下列猜姓名
-    let name=parsed.name||'未命名';
-    let company=parsed.company||'';
-    const note=parsed.region||'';
-    out.push({id:uid(),name,phone,company,note,source:'圖片辨識',status:'pending',callCount:0,createdAt:new Date().toISOString()});
-  }
-  // 若 blocks 沒有成功提供版面資料，才退回舊文字模式
-  const source=out.length ? out : parseOCRText(fallbackText);
-  const byPhone=new Map();
-  for(const c of source){
-    const n=normalizePhone(c.phone); if(!n) continue;
-    if(!byPhone.has(n)) byPhone.set(n,c);
-    else{
-      const old=byPhone.get(n);
-      if(old.name==='未命名' && c.name!=='未命名') old.name=c.name;
-      if(!old.company && c.company) old.company=c.company;
-      if(!old.note && c.note) old.note=c.note;
-    }
-  }
-  return [...byPhone.values()];
-}
-
-function syncSelectedFile(which){
-  const a=document.getElementById('imageInput');
-  const b=document.getElementById('cameraInput');
-  if(which==='image' && a.files && a.files[0]) b.value='';
-  if(which==='camera' && b.files && b.files[0]) a.value='';
-  const f=(b.files&&b.files[0])?b.files[0]:((a.files&&a.files[0])?a.files[0]:null);
-  document.getElementById('selectedFileName').textContent=f ? `已選擇：${f.name||'相機照片'}` : '尚未選擇圖片';
-}
-
-document.getElementById('imageInput').addEventListener('change',()=>syncSelectedFile('image'));
-document.getElementById('cameraInput').addEventListener('change',()=>syncSelectedFile('camera'));
-
 async function runOCR(){
-  const imageInput=document.getElementById('imageInput');
-  const cameraInput=document.getElementById('cameraInput');
-  const input=(cameraInput.files&&cameraInput.files[0])?cameraInput:imageInput;
-  const status=document.getElementById('ocrStatus');
-  if(!input.files || !input.files[0]){
-    status.textContent='請先拍照或選擇圖片。';
-    return;
-  }
-
-  status.textContent='正在載入辨識引擎…';
-  let worker=null;
+  const expected=parseInt(document.getElementById('expectedRows').value,10);
+  const file=(cameraInput.files&&cameraInput.files[0])|| (imageInput.files&&imageInput.files[0]);
+  const st=document.getElementById('ocrStatus');
+  if(!expected||expected<1){st.textContent='請先填這張名單應該有幾筆，例如 10。';return}
+  if(!file){st.textContent='請先拍照或選擇圖片。';return}
+  st.textContent='辨識中，先找電話號碼…';
   try{
-    worker=await Tesseract.createWorker('chi_tra+eng',1,{
-      logger:m=>{
-        if(m.status==='recognizing text') status.textContent='辨識中 '+Math.round((m.progress||0)*100)+'%';
-        else if(m.status) status.textContent='辨識準備中…';
-      }
-    });
+    const c=await prepareCanvas(file);
+    const text1=await ocrOne(c,'eng','6');
+    st.textContent='第二次補抓電話…';
+    const text2=await ocrOne(c,'eng','11');
+    const phones=[...extractPhones(text1),...extractPhones(text2)];
 
-    const ocrSource=await prepareOCRCanvas(input.files[0]);
+    // 對相同來源的重複 OCR 結果做「序列共識」，但保留名單本身的重複電話。
+    // 簡化策略：依出現順序取前 expected 筆；若不足，空列保留。
+    ocrDraft=buildRowsFromPhoneSequence(phones, expected);
 
-    // 穩定版：不再使用會讓整次辨識中止的逐列裁切函式。
-    // 第一遍整張 OCR：抓姓名/公司/電話。
-    await worker.setParameters({
-      tessedit_pageseg_mode:'6',
-      preserve_interword_spaces:'1',
-      user_defined_dpi:'300',
-      tessedit_char_whitelist:''
-    });
-    const ret=await worker.recognize(ocrSource,{}, {text:true,blocks:true});
-    const fullText=(ret && ret.data && ret.data.text)||'';
-
-    let base=[];
-    try{
-      base=parseOCRBlocks((ret.data&&ret.data.blocks)||[],fullText)||[];
-    }catch(err){
-      console.warn('block parse fallback',err);
-      base=parseOCRText(fullText)||[];
-    }
-
-    // 電話優先補抓：即使姓名/公司抓錯，也保留合法電話。
-    status.textContent='正在補抓電話號碼…';
-    const phoneTexts=[fullText];
-
-    // 多輪電話 OCR 若其中一輪失敗，只跳過該輪，不讓整次辨識失敗。
-    try{
-      const variants=await makePhoneColumnVariants(ocrSource);
-      const modes=['6','11','12'];
-      for(let i=0;i<variants.length;i++){
-        try{
-          await worker.setParameters({
-            tessedit_pageseg_mode:modes[i % modes.length],
-            preserve_interword_spaces:'1',
-            user_defined_dpi:'300',
-            tessedit_char_whitelist:'0123456789OIl|｜Ｏ〇○ＳsＢ-－— ()'
-          });
-          const rr=await worker.recognize(variants[i],{}, {text:true});
-          if(rr && rr.data && rr.data.text) phoneTexts.push(rr.data.text);
-        }catch(passErr){
-          console.warn('phone OCR pass skipped',i,passErr);
-        }
-      }
-    }catch(variantErr){
-      console.warn('phone variants skipped',variantErr);
-    }
-
-    ocrDraft=mergeAggressivePhones(base,...phoneTexts);
-
-    if(!ocrDraft.length){
-      // 最後安全網：只靠整張文字建立電話資料。
-      const phones=[
-        ...extractAllLoosePhonesFromText(fullText),
-        ...aggressivePhoneCandidates(fullText)
-      ];
-      const seen=new Set();
-      ocrDraft=[];
-      for(const phone of phones){
-        const n=normalizePhone(phone);
-        if(!n || seen.has(n)) continue;
-        seen.add(n);
-        ocrDraft.push({
-          id:uid(),name:'未命名',phone,
-          company:'',note:'電話優先辨識',
-          source:'圖片辨識',status:'pending',
-          callCount:0,createdAt:new Date().toISOString()
-        });
-      }
-    }
-
-    status.textContent=ocrDraft.length
-      ? `辨識完成，共找到 ${ocrDraft.length} 筆電話資料。電話優先保留；姓名、公司抓不到可再手動修改。`
-      : '沒有辨識到電話，請確認照片中的電話號碼清楚可見。';
-    renderOCRResults();
-
+    st.textContent=`完成：固定建立 ${expected} 筆。已辨識到 ${ocrDraft.filter(x=>x.phone).length} 筆電話；其餘會標示需確認。`;
+    renderOCR();
   }catch(e){
-    console.error('OCR fatal',e);
-    status.textContent='辨識引擎執行失敗。請重新整理網頁後再試一次；不需要重新拍照。';
-  }finally{
-    if(worker){ try{ await worker.terminate(); }catch(_){} }
+    console.error(e);
+    st.textContent='辨識引擎執行失敗。請重新整理後再試，不需要重拍。';
   }
 }
-
-function renderOCRResults(){
-  const el=document.getElementById('ocrResults');
-
-  if(!ocrDraft.length){
-    el.innerHTML='<div class="empty">沒有辨識到可用電話</div>';
-    return;
-  }
-
-  el.innerHTML=`
-    <div class="card">
-      <div class="label">辨識結果，可先修改再匯入</div>
-      ${ocrDraft.map((c,i)=>`
-        <div class="ocr-box">
-          <div class="field"><input value="${attr(c.name)}" oninput="ocrDraft[${i}].name=this.value" placeholder="姓名"></div>
-          <div class="field"><input value="${attr(c.phone)}" oninput="ocrDraft[${i}].phone=this.value" placeholder="電話" inputmode="tel"></div>
-          <div class="field"><input value="${attr(c.company)}" oninput="ocrDraft[${i}].company=this.value" placeholder="公司"></div>
-          <div class="field"><input value="${attr(c.note)}" oninput="ocrDraft[${i}].note=this.value" placeholder="備註"></div>
-          <button class="danger" onclick="ocrDraft.splice(${i},1);renderOCRResults()">刪除此筆</button>
-        </div>
-      `).join('')}
-      <button class="primary" style="margin-top:14px" onclick="importOCR()">加入 ${ocrDraft.length} 筆待撥名單</button>
-    </div>
-  `;
-}
-
-function importOCR(){
-  const existing=new Set(contacts.map(c=>normalizePhone(c.phone)));
-  let added=0;
-
-  ocrDraft.forEach(c=>{
-    const n=normalizePhone(c.phone);
-    if(!n || existing.has(n)) return;
-
-    contacts.push({
-      ...c,
-      status:'pending'
-    });
-    existing.add(n);
-    added++;
+function renderOCR(){
+  const w=document.getElementById('ocrResults');
+  if(!ocrDraft.length){w.innerHTML='<div class="hint">尚未辨識。</div>';importBtn.classList.add('hidden');return}
+  w.innerHTML=ocrDraft.map((r,i)=>`
+  <div class="item ${r.needsCheck?'needs':''}">
+    ${r.needsCheck?'<span class="tag">電話需確認</span>':''}
+    <div class="small">第 ${i+1} 筆</div>
+    <input value="${r.name}" data-i="${i}" data-k="name" placeholder="姓名">
+    <input value="${r.phone}" data-i="${i}" data-k="phone" placeholder="電話">
+    <input value="${r.company}" data-i="${i}" data-k="company" placeholder="公司">
+  </div>`).join('');
+  w.querySelectorAll('input').forEach(el=>el.oninput=e=>{
+    const r=ocrDraft[+e.target.dataset.i]; r[e.target.dataset.k]=e.target.value;
+    if(e.target.dataset.k==='phone') r.needsCheck=!phoneOK(normalizePhone(e.target.value));
   });
-
-  ocrDraft=[];
-  document.getElementById('ocrResults').innerHTML='';
-  document.getElementById('ocrStatus').textContent=`已加入 ${added} 筆待撥名單。`;
-
-  save();
-  switchTab('call');
+  importBtn.classList.remove('hidden');
 }
-
-function renderStats(){
-  const t=todayLogs();
-  document.getElementById('sToday').textContent=t.length;
-  document.getElementById('sDone').textContent=t.filter(x=>x.result==='completed').length;
-  document.getElementById('sNoAnswer').textContent=t.filter(x=>x.result==='noAnswer').length;
-  document.getElementById('sRetry').textContent=t.filter(x=>x.result==='retry').length;
-
-  const el=document.getElementById('logContainer');
-  if(!t.length){
-    el.innerHTML='<div class="empty">今天還沒有撥號紀錄</div>';
-    return;
+function importOCR(){
+  for(const r of ocrDraft){
+    data.items.push({...r,phone:normalizePhone(r.phone),createdAt:new Date().toISOString()});
   }
-
-  el.innerHTML=t.slice().reverse().map(l=>`
-    <div class="list-item">
-      <div>
-        <strong>${escapeHTML(l.name||'未命名')}</strong>
-        <small>${escapeHTML(l.phone||'')}</small>
-        <small>${new Date(l.time).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'})}</small>
-      </div>
-      <span class="badge">${resultLabel(l.result)}</span>
-    </div>
-  `).join('');
+  save(); ocrDraft=[]; renderAll(); showPage('Dial');
 }
-
-function renderAll(){
-  renderCall();
-  renderList();
-  renderStats();
+function current(){return data.items.find(x=>x.status==='pending')}
+function renderDial(){
+  const c=current(), card=document.getElementById('dialCard');
+  if(!c){card.innerHTML='<div class="hint">目前沒有待撥名單。可到「拍照匯入」新增。</div>';return}
+  card.innerHTML=`<div class="small">下一位</div><div class="nextName">${c.name||'未命名'}</div>
+  <div class="nextPhone">${c.phone||'電話需確認'}</div>
+  <div class="small">${c.company||''}</div>
+  <br><button id="callBtn" ${!phoneOK(c.phone)?'disabled style="opacity:.4"':''}>撥打 ${c.name||''}</button>
+  <div class="row2" style="margin-top:12px"><button class="btn2" id="doneBtn" style="color:var(--ok)">已完成</button><button class="btn2" id="missBtn" style="color:var(--bad)">未接</button></div>
+  <button class="btn2" id="laterBtn" style="margin-top:12px">稍後再打，移到最後</button>`;
+  if(phoneOK(c.phone)) callBtn.onclick=()=>{c.callCount++;data.today++;save();location.href='tel:'+c.phone};
+  doneBtn.onclick=()=>{c.status='done';save();renderAll()};
+  missBtn.onclick=()=>{c.status='miss';save();renderAll()};
+  laterBtn.onclick=()=>{const i=data.items.indexOf(c);data.items.splice(i,1);data.items.push(c);save();renderAll()};
 }
-
-function escapeHTML(s=''){
-  return String(s).replace(/[&<>"']/g,c=>({
-    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
-  }[c]));
+function renderList(){
+  listWrap.innerHTML=data.items.length?data.items.map((x,i)=>`<div class="item ${!phoneOK(x.phone)?'needs':''}">
+  <b>${x.name||'未命名'}</b><div>${x.phone||'電話需確認'}</div><div class="small">${x.company||''}</div>
+  <button class="btn2" style="margin-top:8px" onclick="data.items.splice(${i},1);save();renderAll()">刪除</button></div>`).join(''):'<div class="hint">目前沒有名單。</div>';
 }
-function attr(s=''){
-  return escapeHTML(s).replace(/"/g,'&quot;');
+function renderStats(){
+  const remain=data.items.filter(x=>x.status==='pending').length, done=data.items.filter(x=>x.status==='done').length, miss=data.items.filter(x=>x.status==='miss').length;
+  sRemain.textContent=remain;sToday.textContent=data.today||0;sDone.textContent=done;sMiss.textContent=miss;
+  statsDetail.innerHTML=`總筆數：${data.items.length}<br>待撥：${remain}<br>完成：${done}<br>未接：${miss}<br>今日撥打：${data.today||0}`;
 }
-
-if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('sw.js').catch(console.error);
+function renderAll(){renderDial();renderList();renderStats()}
+function showPage(name){
+  ['Dial','List','Import','Stats'].forEach(n=>document.getElementById('page'+n).classList.toggle('hidden',n!==name));
+  document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===name));
 }
-
+document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>showPage(b.dataset.page));
+[cameraInput,imageInput].forEach(inp=>inp.onchange=()=>{const f=(cameraInput.files&&cameraInput.files[0])||(imageInput.files&&imageInput.files[0]);selectedFile.textContent=f?'已選擇：'+f.name:'尚未選擇圖片'});
+ocrBtn.onclick=runOCR; importBtn.onclick=importOCR;
+if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
 renderAll();
 </script>
 </body>
