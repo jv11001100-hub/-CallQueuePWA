@@ -10,7 +10,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
   <title>連續撥號</title>
-  <!-- OCR accuracy version: 8 preserve duplicate rows -->
+  <!-- OCR accuracy version: 9 row-first table scanning -->
 
   <style>
     :root {
@@ -165,7 +165,7 @@
       </div>
       <div id="selectedFileName" class="notice">尚未選擇圖片</div>
       <div class="notice">
-        可直接拍照，也可從「照片」或「檔案」App 選擇圖片。此版本採「電話優先＋保留重複列」：會額外掃描電話欄；同一電話若在名單出現兩次，也會依兩列分開保留。姓名、公司抓錯或抓不到不影響電話建立。
+        可直接拍照，也可從「照片」或「檔案」App 選擇圖片。此版本採「逐列電話辨識」：會把名單由上到下一列一列掃描電話欄；即使相同電話出現在不同列，也會分開保留。姓名、公司抓錯或抓不到不影響電話建立。
       </div>
       <button class="primary" style="margin-top:12px" onclick="runOCR()">開始辨識</button>
       <div id="ocrStatus" class="notice"></div>
@@ -844,6 +844,158 @@ function aggressivePhoneCandidates(text=''){
   return out;
 }
 
+
+async function recognizePhoneRowsByBands(img){
+  // v9：把整張名單依水平表格列切成多個窄帶，各列獨立 OCR。
+  // 目的：相同電話出現在不同列時，也能保留成不同筆。
+  const canvas=document.createElement('canvas');
+  const ctx=canvas.getContext('2d',{willReadFrequently:true});
+  const w=img.naturalWidth||img.width, h=img.naturalHeight||img.height;
+  canvas.width=w; canvas.height=h;
+  ctx.drawImage(img,0,0,w,h);
+
+  // 先利用水平線/文字密度估計列界線；若估不到，就用多組等分切割做容錯。
+  const gray=ctx.getImageData(0,0,w,h).data;
+  const density=[];
+  for(let y=0;y<h;y++){
+    let dark=0;
+    for(let x=0;x<w;x+=Math.max(1,Math.floor(w/500))){
+      const i=(y*w+x)*4;
+      const lum=(gray[i]+gray[i+1]+gray[i+2])/3;
+      if(lum<205) dark++;
+    }
+    density.push(dark);
+  }
+
+  // 找出有文字的連續水平區段，再合併成候選列。
+  const threshold=Math.max(3, Math.floor(w/900));
+  const bands=[];
+  let start=-1;
+  for(let y=0;y<h;y++){
+    if(density[y]>=threshold && start<0) start=y;
+    if((density[y]<threshold || y===h-1) && start>=0){
+      const end=y;
+      if(end-start>=5) bands.push([Math.max(0,start-8),Math.min(h,end+8)]);
+      start=-1;
+    }
+  }
+
+  // 將相距很近的文字小區塊合併為同一表格列。
+  const merged=[];
+  for(const b of bands){
+    if(!merged.length || b[0]-merged[merged.length-1][1] > Math.max(8,h*0.008)){
+      merged.push([...b]);
+    }else{
+      merged[merged.length-1][1]=b[1];
+    }
+  }
+
+  // 過濾太高/太矮區塊。表格通常每列高度相近。
+  let candidates=merged.filter(([a,b])=>{
+    const bh=b-a;
+    return bh>=Math.max(12,h*0.015) && bh<=h*0.18;
+  });
+
+  // 若自動切列不足，增加 8~14 等分候選；最後會依 y 位置去重，但不依電話去重。
+  const fallback=[];
+  for(const count of [8,9,10,11,12,13,14]){
+    const bh=h/count;
+    for(let r=0;r<count;r++){
+      fallback.push([Math.max(0,Math.floor(r*bh-4)),Math.min(h,Math.ceil((r+1)*bh+4))]);
+    }
+  }
+  candidates=[...candidates,...fallback];
+
+  const hits=[];
+  for(const [y1,y2] of candidates){
+    const bh=y2-y1;
+    if(bh<10) continue;
+    const c=document.createElement('canvas');
+    // 電話通常位於表格右半部，但保留較寬範圍避免欄位偏移。
+    const x1=Math.floor(w*0.48), x2=Math.floor(w*0.91);
+    c.width=Math.max(1,(x2-x1)*2);
+    c.height=Math.max(1,bh*2);
+    const cctx=c.getContext('2d');
+    cctx.imageSmoothingEnabled=true;
+    cctx.drawImage(canvas,x1,y1,x2-x1,bh,0,0,c.width,c.height);
+
+    try{
+      const res=await Tesseract.recognize(c,'eng',{
+        tessedit_char_whitelist:'0123456789- ()',
+        preserve_interword_spaces:'1'
+      });
+      const phones=[
+        ...extractAllLoosePhonesFromText(res.data.text||''),
+        ...aggressivePhoneCandidates(res.data.text||'')
+      ];
+      for(const p of phones){
+        const n=normalizePhone(p);
+        if(n) hits.push({phone:n,y:(y1+y2)/2,span:bh});
+      }
+    }catch(e){}
+  }
+
+  // 同一實體列會被多種切法命中很多次：以 y 聚類。
+  // 關鍵：不同 y 的相同電話絕不合併。
+  hits.sort((a,b)=>a.y-b.y);
+  const clusters=[];
+  const yTol=Math.max(12,h*0.035);
+  for(const hit of hits){
+    let best=null, bestDist=Infinity;
+    for(const cl of clusters){
+      const d=Math.abs(cl.y-hit.y);
+      if(d<yTol && d<bestDist){ best=cl; bestDist=d; }
+    }
+    if(best){
+      best.items.push(hit);
+      best.y=best.items.reduce((s,v)=>s+v.y,0)/best.items.length;
+    }else{
+      clusters.push({y:hit.y,items:[hit]});
+    }
+  }
+
+  const rows=[];
+  for(const cl of clusters){
+    const counts=new Map();
+    for(const it of cl.items) counts.set(it.phone,(counts.get(it.phone)||0)+1);
+    const ranked=[...counts.entries()].sort((a,b)=>b[1]-a[1]);
+    if(!ranked.length) continue;
+    const phone=ranked[0][0];
+    rows.push({
+      id:uid(), name:'未命名', phone,
+      company:'', note:'逐列電話辨識',
+      source:'圖片辨識', status:'pending',
+      callCount:0, createdAt:new Date().toISOString(),
+      _rowY:cl.y
+    });
+  }
+  rows.sort((a,b)=>(a._rowY||0)-(b._rowY||0));
+  return rows;
+}
+
+function mergeRowFirstResults(baseRows, rowRows, ...texts){
+  // 若逐列辨識比一般 OCR 找到更多列，優先使用逐列結果；
+  // 否則保留一般 OCR。兩者都不依電話號碼去重。
+  let rows=(rowRows&&rowRows.length>baseRows.length) ? rowRows : [...baseRows];
+
+  const seenPhones=new Set(rows.map(r=>normalizePhone(r.phone)).filter(Boolean));
+  // 補抓僅補完全沒出現過的號碼，不影響逐列重複。
+  for(const txt of texts){
+    const phones=[...extractAllLoosePhonesFromText(txt||''),...aggressivePhoneCandidates(txt||'')];
+    for(const p of phones){
+      const n=normalizePhone(p);
+      if(!n || seenPhones.has(n)) continue;
+      seenPhones.add(n);
+      rows.push({
+        id:uid(), name:'未命名', phone:n, company:'', note:'電話補抓',
+        source:'圖片辨識', status:'pending', callCount:0,
+        createdAt:new Date().toISOString()
+      });
+    }
+  }
+  return rows;
+}
+
 function mergeAggressivePhones(existing, ...texts){
   // v8：原本從表格列辨識出來的資料全部保留，不以電話去重。
   const rows=[...(existing||[])].filter(c=>normalizePhone(c.phone));
@@ -1045,8 +1197,9 @@ async function runOCR(){
       }
     }
 
-    ocrDraft=mergeAggressivePhones(base, ret.data.text||'', ...phoneTexts);
-    status.textContent=`辨識完成，共找到 ${ocrDraft.length} 筆電話資料。此版採多輪電話補抓，且重複電話不合併；姓名或公司錯誤不會刪除電話。`;
+    const rowFirst = await recognizePhoneRowsByBands(img);
+    ocrDraft=mergeRowFirstResults(base, rowFirst, ret.data.text||'', ...phoneTexts);
+    status.textContent=`辨識完成，共找到 ${ocrDraft.length} 筆電話資料。此版採逐列電話辨識；不同列即使電話相同也會保留。姓名或公司錯誤不會刪除電話。`;
     renderOCRResults();
   }catch(e){
     console.error(e);
