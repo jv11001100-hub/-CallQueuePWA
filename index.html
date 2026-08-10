@@ -9,7 +9,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>連續撥號</title>
-<!-- Clean Start v1.6.6: Safari-safe import and dial controls; phone core unchanged -->
+<!-- Clean Start v1.6.7: status visible in all-list view; phone core unchanged -->
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <style>
 :root{--bg:#f4f4f6;--card:#fff;--text:#111;--muted:#7a7a80;--line:#e3e3e8;--ok:#07834d;--bad:#c5221f}
@@ -58,10 +58,11 @@ label{display:block;color:var(--muted);margin:0 0 8px}.hint{color:var(--muted);f
 <section id="pageList" class="hidden"><main>
 <div class="card">
 <h2>名單 / 撥打紀錄</h2>
+<div id="listStatusSummary" class="hint" style="margin-bottom:10px"></div>
 <div class="filters" id="statusFilters">
   <button class="filterBtn active" data-filter="all">全部</button>
   <button class="filterBtn" data-filter="pending">尚未處理</button>
-  <button class="filterBtn" data-filter="done">已完成</button>
+  <button class="filterBtn" data-filter="done">完成</button>
   <button class="filterBtn" data-filter="miss">未接</button>
   <button class="filterBtn" data-filter="later">追蹤</button>
 </div>
@@ -693,7 +694,7 @@ function renderDial(){
   };
 }
 function statusLabel(status){
-  return status==='done'?'已完成':status==='miss'?'未接':status==='later'?'追蹤':'尚未處理';
+  return status==='done'?'完成':status==='miss'?'未接':status==='later'?'追蹤':'尚未處理';
 }
 function statusClass(status){
   return status==='done'?'badge-done':status==='miss'?'badge-miss':status==='later'?'badge-later':'badge-pending';
@@ -720,9 +721,18 @@ function renderList(){
   const all=data.items.map((x,i)=>({...x,_idx:i}));
   const shown=listFilter==='all'?all:all.filter(x=>x.status===listFilter);
 
+  const summary=document.getElementById('listStatusSummary');
+  if(summary){
+    const pendingCount=data.items.filter(x=>x.status==='pending').length;
+    const doneCount=data.items.filter(x=>x.status==='done').length;
+    const missCount=data.items.filter(x=>x.status==='miss').length;
+    const laterCount=data.items.filter(x=>x.status==='later').length;
+    summary.innerHTML=`全部 ${data.items.length} 筆　｜　尚未處理 ${pendingCount}　｜　完成 ${doneCount}　｜　未接 ${missCount}　｜　追蹤 ${laterCount}`;
+  }
+
   listWrap.innerHTML=shown.length?shown.map(x=>`
   <div class="item ${!phoneOK(x.phone)?'needs':''}">
-    <span class="statusBadge ${statusClass(x.status)}">${statusLabel(x.status)}</span>
+    <span class="statusBadge ${statusClass(x.status)}">狀態：${statusLabel(x.status)}</span>
     <div><b>${x.name||'未命名'}</b></div>
     <div style="font-size:22px;margin:5px 0">${x.phone||'電話需確認'}</div>
     <div class="small">${x.company||''}</div>
@@ -731,7 +741,7 @@ function renderList(){
     <div class="itemActions">
       <button class="callOne" onclick="callOne(${x._idx})" ${!phoneOK(x.phone)?'disabled style="opacity:.4"':''}>📞 單一回撥</button>
       <button class="btn2" onclick="setItemStatus(${x._idx},'pending')">尚未處理</button>
-      <button class="btn2" style="color:var(--ok)" onclick="setItemStatus(${x._idx},'done')">已完成</button>
+      <button class="btn2" style="color:var(--ok)" onclick="setItemStatus(${x._idx},'done')">完成</button>
       <button class="btn2" style="color:var(--bad)" onclick="setItemStatus(${x._idx},'miss')">未接</button>
       <button class="btn2" onclick="setItemStatus(${x._idx},'later')">追蹤</button>
       <button class="btn2" onclick="data.items.splice(${x._idx},1);save();renderAll()">刪除</button>
