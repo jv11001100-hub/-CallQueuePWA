@@ -9,7 +9,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>連續撥號</title>
-<!-- Clean Start v1.6: visible call-status history and single callback; phone core unchanged -->
+<!-- Clean Start v1.6.1: pending status persistence fix; phone core unchanged -->
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <style>
 :root{--bg:#f4f4f6;--card:#fff;--text:#111;--muted:#7a7a80;--line:#e3e3e8;--ok:#07834d;--bad:#c5221f}
@@ -620,12 +620,17 @@ function statusClass(status){
 function setItemStatus(i,status){
   if(!data.items[i]) return;
   data.items[i].status=status;
-  save();renderAll();
+  data.items[i].statusUpdatedAt=Date.now();
+  save();
+  renderAll();
 }
 function callOne(i){
   const x=data.items[i];
   if(!x || !phoneOK(x.phone)) return;
   x.callCount=(x.callCount||0)+1;
+  x.lastCalledAt=Date.now();
+  if(!['done','miss','later'].includes(x.status)) x.status='pending';
+  x.statusUpdatedAt=Date.now();
   data.today=(data.today||0)+1;
   save();renderAll();
   location.href='tel:'+x.phone;
@@ -640,11 +645,11 @@ function renderList(){
     <div><b>${x.name||'未命名'}</b></div>
     <div style="font-size:22px;margin:5px 0">${x.phone||'電話需確認'}</div>
     <div class="small">${x.company||''}</div>
-    <div class="small">已撥 ${x.callCount||0} 次</div>
+    <div class="small">已撥 ${x.callCount||0} 次${x.lastCalledAt?' · 最近撥打 '+new Date(x.lastCalledAt).toLocaleString('zh-TW',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):''}</div>
 
     <div class="itemActions">
       <button class="callOne" onclick="callOne(${x._idx})" ${!phoneOK(x.phone)?'disabled style="opacity:.4"':''}>📞 單一回撥</button>
-      <button class="btn2" onclick="setItemStatus(${x._idx},'pending')">改為待撥</button>
+      <button class="btn2" onclick="setItemStatus(${x._idx},'pending')">待撥 / 保留</button>
       <button class="btn2" style="color:var(--ok)" onclick="setItemStatus(${x._idx},'done')">已完成</button>
       <button class="btn2" style="color:var(--bad)" onclick="setItemStatus(${x._idx},'miss')">未接</button>
       <button class="btn2" onclick="setItemStatus(${x._idx},'later')">稍後再打</button>
