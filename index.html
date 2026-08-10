@@ -9,7 +9,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>連續撥號</title>
-<!-- Clean Start v1.6.2: workflow labels complete/missed/follow-up; phone core unchanged -->
+<!-- Clean Start v1.6.4: four workflow states on dial page; phone core unchanged -->
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <style>
 :root{--bg:#f4f4f6;--card:#fff;--text:#111;--muted:#7a7a80;--line:#e3e3e8;--ok:#07834d;--bad:#c5221f}
@@ -601,6 +601,7 @@ function renderDial(){
   <div class="row2" style="margin-top:12px"><button class="btn2" id="doneBtn" style="color:var(--ok)">已完成</button><button class="btn2" id="missBtn" style="color:var(--bad)">未接</button></div>
   <button class="btn2" id="laterBtn" style="margin-top:12px">稍後再打，移到最後</button>`;
   if(phoneOK(c.phone)) callBtn.onclick=()=>{c.callCount++;data.today++;save();location.href='tel:'+c.phone};
+  pendingBtn.onclick=()=>{c.status='pending';c.statusUpdatedAt=Date.now();save();renderAll()};
   doneBtn.onclick=()=>{c.status='done';save();renderAll()};
   missBtn.onclick=()=>{c.status='miss';save();renderAll()};
   laterBtn.onclick=()=>{
