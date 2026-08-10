@@ -9,7 +9,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>連續撥號</title>
-<!-- Clean Start v1.6.5: dial interface four-state buttons synced; phone core unchanged -->
+<!-- Clean Start v1.6.6: Safari-safe import and dial controls; phone core unchanged -->
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <style>
 :root{--bg:#f4f4f6;--card:#fff;--text:#111;--muted:#7a7a80;--line:#e3e3e8;--ok:#07834d;--bad:#c5221f}
@@ -567,7 +567,12 @@ async function runOCR(){
 }
 function renderOCR(){
   const w=document.getElementById('ocrResults');
-  if(!ocrDraft.length){w.innerHTML='<div class="hint">尚未辨識。</div>';importBtn.classList.add('hidden');return}
+  if(!ocrDraft.length){
+    w.innerHTML='<div class="hint">尚未辨識。</div>';
+    const ib=document.getElementById('importBtn');
+    if(ib) ib.classList.add('hidden');
+    return
+  }
   w.innerHTML=ocrDraft.map((r,i)=>`
   <div class="item ${r.needsCheck?'needs':''}">
     ${r.needsCheck?'<span class="tag">電話需確認</span>':''}
@@ -580,13 +585,35 @@ function renderOCR(){
     const r=ocrDraft[+e.target.dataset.i]; r[e.target.dataset.k]=e.target.value;
     if(e.target.dataset.k==='phone') r.needsCheck=!phoneOK(normalizePhone(e.target.value));
   });
-  importBtn.classList.remove('hidden');
+  const ib=document.getElementById('importBtn'); if(ib) ib.classList.remove('hidden');
 }
 function importOCR(){
-  for(const r of ocrDraft){
-    data.items.push({...r,phone:normalizePhone(r.phone),createdAt:new Date().toISOString()});
+  if(!ocrDraft.length){
+    const st=document.getElementById('ocrStatus');
+    if(st) st.textContent='目前沒有可加入的辨識資料。';
+    return;
   }
-  save(); ocrDraft=[]; renderAll(); showPage('Dial');
+
+  const count=ocrDraft.length;
+  for(const r of ocrDraft){
+    data.items.push({
+      ...r,
+      phone:normalizePhone(r.phone),
+      status:r.status||'pending',
+      callCount:r.callCount||0,
+      createdAt:new Date().toISOString()
+    });
+  }
+
+  save();
+  ocrDraft=[];
+  renderOCR();
+  renderAll();
+
+  const st=document.getElementById('ocrStatus');
+  if(st) st.textContent=`已成功加入 ${count} 筆待撥名單。`;
+
+  showPage('Dial');
 }
 function current(){
   return data.items.find(x=>x.status==='pending') || data.items.find(x=>x.status==='later');
@@ -617,8 +644,14 @@ function renderDial(){
     </div>
   `;
 
-  if(phoneOK(c.phone)){
-    callBtn.onclick=()=>{
+  const callButton=document.getElementById('callBtn');
+  const pendingButton=document.getElementById('pendingBtn');
+  const doneButton=document.getElementById('doneBtn');
+  const missButton=document.getElementById('missBtn');
+  const laterButton=document.getElementById('laterBtn');
+
+  if(callButton && phoneOK(c.phone)){
+    callButton.onclick=()=>{
       c.callCount=(c.callCount||0)+1;
       c.lastCalledAt=Date.now();
       if(!['done','miss','later'].includes(c.status)) c.status='pending';
@@ -630,25 +663,25 @@ function renderDial(){
     };
   }
 
-  pendingBtn.onclick=()=>{
+  if(pendingButton) pendingButton.onclick=()=>{
     c.status='pending';
     c.statusUpdatedAt=Date.now();
     save();renderAll();
   };
 
-  doneBtn.onclick=()=>{
+  if(doneButton) doneButton.onclick=()=>{
     c.status='done';
     c.statusUpdatedAt=Date.now();
     save();renderAll();
   };
 
-  missBtn.onclick=()=>{
+  if(missButton) missButton.onclick=()=>{
     c.status='miss';
     c.statusUpdatedAt=Date.now();
     save();renderAll();
   };
 
-  laterBtn.onclick=()=>{
+  if(laterButton) laterButton.onclick=()=>{
     c.status='later';
     c.statusUpdatedAt=Date.now();
     const i=data.items.indexOf(c);
@@ -729,7 +762,10 @@ document.querySelectorAll('#statusFilters .filterBtn').forEach(b=>b.onclick=()=>
 });
 document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>showPage(b.dataset.page));
 [cameraInput,imageInput].forEach(inp=>inp.onchange=()=>{const f=(cameraInput.files&&cameraInput.files[0])||(imageInput.files&&imageInput.files[0]);selectedFile.textContent=f?'已選擇：'+f.name:'尚未選擇圖片'});
-ocrBtn.onclick=runOCR; importBtn.onclick=importOCR;
+const ocrButton=document.getElementById('ocrBtn');
+const importButton=document.getElementById('importBtn');
+if(ocrButton) ocrButton.onclick=runOCR;
+if(importButton) importButton.onclick=importOCR;
 if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
 renderAll();
 </script>
