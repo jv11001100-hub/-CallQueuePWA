@@ -9,7 +9,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>連續撥號</title>
-<!-- Clean Start v1.5.1: structured table name/company OCR bugfix; phone core unchanged -->
+<!-- Clean Start v1.5.2: strict person-name parsing; phone core unchanged -->
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <style>
 :root{--bg:#f4f4f6;--card:#fff;--text:#111;--muted:#7a7a80;--line:#e3e3e8;--ok:#07834d;--bad:#c5221f}
@@ -388,6 +388,31 @@ function stripPhoneFromLine(line=''){
   );
 }
 
+
+function extractStrictTableName(line='', company=''){
+  let t=stripPhoneFromLine(line);
+  if(company) t=t.replace(company,' ');
+  t=t.replace(/(?:序號|姓名|公司名稱|電話|負責人)/g,' ');
+  t=t.replace(/^\s*(?:第\s*)?\d{1,3}\s*(?:筆)?[\s.:：、\-]*/,' ');
+  t=cleanRowText(t);
+
+  // Split OCR columns where spacing survived.
+  const parts=t.split(/\s{1,}/).map(x=>x.trim()).filter(Boolean);
+
+  // A name must be only 2–4 Chinese chars and must NOT look like a company.
+  for(const p of parts){
+    if(/^[\u4e00-\u9fff]{2,4}$/.test(p) && !companyLooksLike(p)){
+      return p;
+    }
+  }
+
+  // Fallback: only accept the leading 2–4 Chinese chars if the remainder
+  // clearly begins a company phrase. This prevents a company name becoming a person.
+  const m=t.match(/^([\u4e00-\u9fff]{2,4})\s+(.+)$/);
+  if(m && companyLooksLike(m[2]) && !companyLooksLike(m[1])) return m[1];
+  return '';
+}
+
 function parseStructuredTableRows(text='', expected=0){
   const lines=String(text).split(/\n+/).map(cleanRowText).filter(Boolean);
   const out=[];
@@ -432,20 +457,8 @@ function parseStructuredTableRows(text='', expected=0){
     }
 
     const noPhone=stripPhoneFromLine(combined);
-    let name='';
-    if(company){
-      const pos=noPhone.indexOf(company);
-      if(pos>=0) name=pickName(noPhone.slice(0,pos));
-    }
-
-    // 若公司抓不到，仍嘗試從序號後抓 2~4 字姓名
-    if(!name){
-      const t=cleanLeadingSerial(noPhone)
-        .replace(/(?:序號|姓名|公司名稱|電話)/g,' ')
-        .trim();
-      const m=t.match(/^([\u4e00-\u9fff]{2,4})/);
-      if(m) name=m[1];
-    }
+    // 姓名採嚴格規則：公司字串永遠不能被塞進姓名欄。
+    let name=extractStrictTableName(combined,company);
 
     out.push({phone:phones[0], name, company});
   }
@@ -472,7 +485,8 @@ function parseStructuredTableRows(text='', expected=0){
 
   for(let i=0;i<Math.min(expected,out.length);i++){
     if(!out[i].company && globalCompanies[i]) out[i].company=globalCompanies[i];
-    if(!out[i].name && globalNames[i]) out[i].name=globalNames[i];
+    // 姓名不做全域順序硬塞，避免把公司名稱誤當負責人。
+    if(out[i].name && companyLooksLike(out[i].name)) out[i].name='';
   }
 
   return out;
@@ -521,7 +535,7 @@ async function runOCR(){
       console.warn('structured table metadata OCR skipped',metaErr);
     }
 
-    st.textContent=`完成：固定建立 ${expected} 筆。已辨識到 ${ocrDraft.filter(x=>x.phone).length} 筆電話。v1.5.1 已修正拍照匯入錯誤，並使用「姓名｜公司名稱｜電話」同列解析；電話核心未變更。`;
+    st.textContent=`完成：固定建立 ${expected} 筆。已辨識到 ${ocrDraft.filter(x=>x.phone).length} 筆電話。v1.5.2 已修正「公司名稱跑進負責人欄」；姓名採嚴格欄位判斷，電話核心未變更。`;
     renderOCR();
   }catch(e){
     console.error(e);
