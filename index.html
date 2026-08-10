@@ -9,7 +9,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>連續撥號</title>
-<!-- Clean Start v1.5: structured table name/company OCR; phone core unchanged -->
+<!-- Clean Start v1.5.1: structured table name/company OCR bugfix; phone core unchanged -->
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <style>
 :root{--bg:#f4f4f6;--card:#fff;--text:#111;--muted:#7a7a80;--line:#e3e3e8;--ok:#07834d;--bad:#c5221f}
@@ -465,7 +465,7 @@ function parseStructuredTableRows(text='', expected=0){
       if(n) globalNames.push(n);
     }else{
       const t=cleanLeadingSerial(stripped);
-      const m=t.match(/^([\u4e00-\u9fff]{2,4})\b?/);
+      const m=t.match(/^([\u4e00-\u9fff]{2,4})/);
       if(m && m[1] && !companyLooksLike(m[1])) globalNames.push(m[1]);
     }
   }
@@ -521,7 +521,7 @@ async function runOCR(){
       console.warn('structured table metadata OCR skipped',metaErr);
     }
 
-    st.textContent=`完成：固定建立 ${expected} 筆。已辨識到 ${ocrDraft.filter(x=>x.phone).length} 筆電話。v1.5 已改用「姓名｜公司名稱｜電話」同列解析；電話核心未變更。`;
+    st.textContent=`完成：固定建立 ${expected} 筆。已辨識到 ${ocrDraft.filter(x=>x.phone).length} 筆電話。v1.5.1 已修正拍照匯入錯誤，並使用「姓名｜公司名稱｜電話」同列解析；電話核心未變更。`;
     renderOCR();
   }catch(e){
     console.error(e);
