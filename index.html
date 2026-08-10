@@ -9,7 +9,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>連續撥號</title>
-<!-- Clean Start v1.6.4: four workflow states on dial page; phone core unchanged -->
+<!-- Clean Start v1.6.5: dial interface four-state buttons synced; phone core unchanged -->
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <style>
 :root{--bg:#f4f4f6;--card:#fff;--text:#111;--muted:#7a7a80;--line:#e3e3e8;--ok:#07834d;--bad:#c5221f}
@@ -593,22 +593,69 @@ function current(){
 }
 function renderDial(){
   const c=current(), card=document.getElementById('dialCard');
-  if(!c){card.innerHTML='<div class="hint">目前沒有待撥名單。可到「拍照匯入」新增。</div>';return}
-  card.innerHTML=`<div class="small">下一位</div><div class="nextName">${c.name||'未命名'}</div>
-  <div class="nextPhone">${c.phone||'電話需確認'}</div>
-  <div class="small">${c.company||''}</div>
-  <br><button id="callBtn" ${!phoneOK(c.phone)?'disabled style="opacity:.4"':''}>撥打 ${c.name||''}</button>
-  <div class="row2" style="margin-top:12px"><button class="btn2" id="doneBtn" style="color:var(--ok)">已完成</button><button class="btn2" id="missBtn" style="color:var(--bad)">未接</button></div>
-  <button class="btn2" id="laterBtn" style="margin-top:12px">稍後再打，移到最後</button>`;
-  if(phoneOK(c.phone)) callBtn.onclick=()=>{c.callCount++;data.today++;save();location.href='tel:'+c.phone};
-  pendingBtn.onclick=()=>{c.status='pending';c.statusUpdatedAt=Date.now();save();renderAll()};
-  doneBtn.onclick=()=>{c.status='done';save();renderAll()};
-  missBtn.onclick=()=>{c.status='miss';save();renderAll()};
+  if(!c){
+    card.innerHTML='<div class="hint">目前沒有待撥名單。可到「拍照匯入」新增。</div>';
+    return;
+  }
+
+  card.innerHTML=`
+    <div class="small">下一位</div>
+    <div class="nextName">${c.name||'未命名'}</div>
+    <div class="nextPhone">${c.phone||'電話需確認'}</div>
+    <div class="small">${c.company||''}</div>
+    <br>
+    <button id="callBtn" ${!phoneOK(c.phone)?'disabled style="opacity:.4"':''}>撥打 ${c.name||''}</button>
+
+    <div style="margin-top:14px" class="small">通話結果 / 狀態</div>
+    <div class="row2" style="margin-top:10px">
+      <button class="btn2" id="pendingBtn">尚未處理</button>
+      <button class="btn2" id="doneBtn" style="color:var(--ok)">完成</button>
+    </div>
+    <div class="row2" style="margin-top:10px">
+      <button class="btn2" id="missBtn" style="color:var(--bad)">未接</button>
+      <button class="btn2" id="laterBtn">追蹤</button>
+    </div>
+  `;
+
+  if(phoneOK(c.phone)){
+    callBtn.onclick=()=>{
+      c.callCount=(c.callCount||0)+1;
+      c.lastCalledAt=Date.now();
+      if(!['done','miss','later'].includes(c.status)) c.status='pending';
+      c.statusUpdatedAt=Date.now();
+      data.today=(data.today||0)+1;
+      save();
+      renderAll();
+      location.href='tel:'+c.phone;
+    };
+  }
+
+  pendingBtn.onclick=()=>{
+    c.status='pending';
+    c.statusUpdatedAt=Date.now();
+    save();renderAll();
+  };
+
+  doneBtn.onclick=()=>{
+    c.status='done';
+    c.statusUpdatedAt=Date.now();
+    save();renderAll();
+  };
+
+  missBtn.onclick=()=>{
+    c.status='miss';
+    c.statusUpdatedAt=Date.now();
+    save();renderAll();
+  };
+
   laterBtn.onclick=()=>{
     c.status='later';
+    c.statusUpdatedAt=Date.now();
     const i=data.items.indexOf(c);
-    data.items.splice(i,1);
-    data.items.push(c);
+    if(i>=0){
+      data.items.splice(i,1);
+      data.items.push(c);
+    }
     save();renderAll();
   };
 }
